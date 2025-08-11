@@ -1,0 +1,36 @@
+{
+  "name": "litrev-react",
+  "version": "1.0.0",
+  "main": "literature-review-api/server.js",
+  "proxy": "http://localhost:5000",
+  "scripts": {
+    "test": "exit 0",
+    "start": "node literature-review-api/server.js",
+    "dev": "concurrently \"cd literature-review-api && node server.js\" \"cd deepforrest-literature-assistant && npm start\"",
+    "build": "cd deepforrest-literature-assistant && npm install && npm run build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Literature Review Application",
+  "dependencies": {
+    "@azure/storage-blob": "^12.27.0",
+    "axios": "^1.8.4",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "lodash": "^4.17.21",
+    "mssql": "^11.0.1",
+    "multer": "^1.4.5-lts.2",
+    "path": "^0.12.7",
+    "react-window": "^1.8.11"
+  },
+  "devDependencies": {
+    "@ljharb/tsconfig": "^0.3.2",
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

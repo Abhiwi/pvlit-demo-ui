@@ -1,0 +1,75 @@
+Row,Column,Value in A,Value in B
+3,Status,Document Uploaded,Pending
+7,Status,Document Uploaded,Pending
+8,Status,Document Uploaded,Pending
+13,Status,Document Uploaded,Pending
+17,Status,Document Uploaded,Pending
+18,Status,Document Uploaded,Pending
+20,Status,Document Uploaded,Pending
+22,Status,Document Uploaded,Pending
+24,Search date,Apr 26 2025  6:30PM,2025 April 27
+24,Article Publication Date,Apr 24 2025  6:30PM,2025 Apr 25
+24,Status,Document Uploaded,Pending
+195,Status,Document Uploaded,Pending
+223,Status,Document Uploaded,Pending
+281,Status,Document Uploaded,Pending
+531,Status,Document Uploaded,Pending
+556,"Comments (ICSR, AOI, Not selected)",AOI,Not Selected
+556,Search date,Apr 26 2025  6:30PM,2025 April 27
+556,Validation Processing Date,2025-05-05T00:00:00.000Z,2025-04-30T00:00:00.000Z
+556,Summary,"The article presents a case report detailing the use of intrathecal baclofen therapy in a 10-year-old boy suffering from refractory status dystonicus due to neuro-hepatic Wilson's disease. Wilson's disease is a genetic disorder characterized by excessive copper accumulation in the body, leading to various neurological symptoms. The patient initially experienced walking discomfort, which progressed to severe dystonia, dysphagia, and significant weight loss. Despite treatment with trientine hydrochloride and zinc monotherapy, his condition deteriorated, resulting in status dystonicus, marked by high-grade fever and elevated creatine phosphokinase levels. The authors highlight the phenomenon of ""early neurological worsening,"" where neurological symptoms worsen following the initiation of chelation therapy. After ineffective symptom management with several medications, the patient was treated with intrathecal baclofen, which provided significant symptom relief. Following a successful trial of baclofen injections, a baclofen pump was implanted, leading to marked improvement in his condition. At discharge, the patient had a modified Rankin Scale score of 5, indicating severe disability. Three years later, although wheelchair-dependent, he showed progressive improvement in oral intake and speech. This case is significant as it is the first reported instance of intrathecal baclofen therapy successfully treating status dystonicus associated with Wilson's disease, suggesting its potential as a viable treatment option for similar cases. The authors emphasize the need for further investigation into intrathecal baclofen as a treatment for dystonia in Wilson's disease, given the challenges and severity of neurological symptoms associated with the condition.
+```","This article presents a case report detailing the successful use of intrathecal baclofen therapy to treat a 10-year-old boy suffering from refractory status dystonicus associated with neuro-hepatic Wilson's disease. Wilson's disease is a genetic disorder characterized by copper accumulation in the body, leading to various neurological symptoms, including dystonia. The patient initially experienced walking discomfort, which progressed to severe dystonia, dysphagia, and significant weight loss. Despite undergoing chelation therapy with trientine hydrochloride and zinc, the patient's condition deteriorated, leading to status dystonicus, which included high-grade fever and elevated creatine phosphokinase levels. Traditional treatments failed to alleviate his symptoms, prompting the initiation of intrathecal baclofen therapy. Following a trial of baclofen injections, the patient showed significant improvement, leading to the implantation of a baclofen pump. This intervention resulted in a marked reduction in dystonic symptoms and improved quality of life. At discharge, the patient had a modified Rankin Scale score of 5, indicating severe disability, but showed signs of progressive improvement in oral intake and speech during a three-year follow-up. This case highlights the potential of intrathecal baclofen as a viable treatment option for severe dystonia associated with Wilson's disease, particularly in cases resistant to conventional therapies. The findings suggest that further investigation into intrathecal baclofen therapy could provide new avenues for managing debilitating neurological symptoms in patients with Wilson's disease.
+```"
+556,Article Publication Date,Mar 31 2025  6:30PM,2025 Apr 1
+556,Primary Author Country,Japan country,Japan
+556,Status,Approved,Pending
+600,Status,Document Uploaded,Pending
+745,Status,Document Uploaded,Pending
+748,Status,Document Uploaded,Pending
+1091,Search date,Apr 26 2025  6:30PM,2025 April 27
+1091,Validation Processing Date,2025-05-05T00:00:00.000Z,2025-05-01T00:00:00.000Z
+1091,Summary,"The article presents a case report detailing the treatment of a 10-year-old boy suffering from neuro-hepatic Wilson's disease, who experienced severe neurological symptoms, specifically treatment-refractory generalized dystonia. Wilson's disease is an autosomal recessive disorder characterized by abnormal copper accumulation, leading to various neurological manifestations. The patient initially presented with walking discomfort, dysphagia, and significant weight loss, which progressed to severe dystonia and status dystonicus despite receiving chelation therapy with trientine hydrochloride and zinc. The condition deteriorated, resulting in high-grade fever and elevated creatine phosphokinase levels, attributed to ""early neurological worsening"" following the initiation of treatment. To manage the severe symptoms, intrathecal baclofen therapy was initiated, which provided significant symptom relief. The patient underwent implantation of a baclofen pump, leading to a remarkable improvement in his dystonic symptoms. At discharge, although wheelchair-dependent, he showed progressive improvement in oral intake and speech over three years of follow-up. This case highlights the potential of intrathecal baclofen as a viable treatment option for debilitating dystonia associated with Wilson's disease, particularly in cases resistant to conventional therapies. The report underscores the challenges of managing neurological symptoms in Wilson's disease and the need for individualized treatment approaches.
+```","The article presents a case report of a 10-year-old boy diagnosed with neuro-hepatic Wilson's disease who experienced severe neurological symptoms, specifically treatment-refractory generalized dystonia. The boy's condition deteriorated despite receiving appropriate chelation therapy with trientine hydrochloride and zinc monotherapy, leading to status dystonicus characterized by high-grade fever, elevated creatine phosphokinase levels, and dehydration. The initial symptoms included walking discomfort, dysphagia, and significant weight loss. Following the diagnosis of Wilson's disease through various clinical and imaging findings, the patient underwent intrathecal baclofen (ITB) therapy, which provided significant symptom relief. The ITB pump was implanted, and the patient showed improvement in his condition over a three-year follow-up, although he remained wheelchair-dependent. This case highlights the potential of ITB therapy as a viable treatment option for debilitating dystonia associated with Wilson's disease, particularly in cases of status dystonicus. The article emphasizes the challenges of managing neurological symptoms in Wilson's disease and the need for individualized treatment approaches, including surgical options when necessary. The findings contribute to the understanding of early neurological worsening in Wilson's disease and the effectiveness of ITB therapy in managing severe dystonia.
+```"
+1091,Article Publication Date,Mar 31 2025  6:30PM,2025 Apr 1
+1091,Casuality Response,"""No adverse event due to the Trientine.""","The patient, a 10-year-old boy with neuro-hepatic Wilson's disease, was treated with trientine hydrochloride. Despite appropriate chelation therapy, his neurological symptoms worsened, leading to severe axial torsion involving the trunk, high-grade fever, elevated creatine phosphokinase levels (1,664 IU/L), and dehydration, which required midazolam sedation. These symptoms were attributed to “early neurological worsening.”"
+1091,Casuality Validation (Rule-4),invalid,valid
+1091,Reason of selection,"No ICSR due to invalid Author Validation (Rule-1), Publication Date Validation (Rule-2), Casuality Validation (Rule-4) column","Adverse event found in the Drug Trientine, But Drug not authorized in source country"
+1091,Status,Approved,Pending
+1235,Status,Document Uploaded,Pending
+1314,Search date,Apr 28 2025  6:30PM,2025 April 29
+1314,Article Publication Date,Apr 24 2025  6:30PM,2025 Apr 25
+1314,Casuality Validation (Rule-4),valid valid,valid
+1443,Status,Document Uploaded,Pending
+1768,Status,Document Uploaded,Pending
+1868,Status,Document Uploaded,Pending
+4342,Status,Document Uploaded,Pending
+4344,Status,Document Uploaded,Pending
+4358,Status,Document Uploaded,Pending
+4388,Status,Document Uploaded,Pending
+4435,Status,Document Uploaded,Pending
+4464,Status,Document Uploaded,Pending
+4527,Status,Document Uploaded,Pending
+4742,"Comments (ICSR, AOI, Not selected)",AOI,Not Selected
+4742,Search date,Apr 26 2025  6:30PM,2025 April 27
+4742,Article Publication Date,Mar 31 2025  6:30PM,2025 Apr 1
+4742,Status,Approved,Pending
+4792,Status,Document Uploaded,Pending
+4825,"Comments (ICSR, AOI, Not selected)",AOI,Not Selected
+4825,Search date,Apr 26 2025  6:30PM,2025 April 27
+4825,Article Publication Date,Mar 31 2025  6:30PM,2025 Apr 1
+4825,Primary Author Country,Japan country,Japan
+4825,Status,Approved,Pending
+4877,Status,Document Uploaded,Pending
+5016,Status,Document Uploaded,Pending
+5017,Status,Document Uploaded,Pending
+5018,Status,Document Uploaded,Pending
+5019,Search date,Apr 26 2025  6:30PM,2025 April 27
+5019,Validation Processing Date,2025-04-30T00:00:00.000Z,2025-05-05T00:00:00.000Z
+5019,Summary,"The article investigates how the phenotype of resistance determinants in Enterobacterales, specifically Escherichia coli and Klebsiella pneumoniae, is influenced by varying concentrations of dissolved oxygen. The study focuses on the minimum inhibitory concentration (MIC) of isogenic E. coli strains containing 136 different resistance genes against eight antibiotic families under both aerobic and anaerobic conditions. The findings reveal significant changes in the performance of resistance genes in anaerobic environments, with notable decreases in resistance to certain antibiotics, such as ertapenem and fosfomycin, particularly among blaVIMß-lactamases and specific fos genes. Conversely, the blaOXA-48ß-lactamase from the clinically significant pOXA-48 plasmid exhibited a four-fold increase in ertapenem resistance in anaerobic conditions. The research highlights the importance of anaerobiosis in affecting antibiotic action and the selective power of antimicrobial resistance (AMR) in various environments, suggesting that oxygen levels are a critical factor in the efficacy of antibiotics against specific resistance mechanisms.
+```","The article investigates how bacteria, specifically Enterobacterales, adapt to varying oxygen levels and how this affects their resistance to antibiotics. The study focuses on the minimum inhibitory concentration (MIC) of isogenic Escherichia coli strains with 136 different resistance genes when exposed to eight antibiotic families under both aerobic and anaerobic conditions. The findings reveal significant changes in resistance patterns, particularly noting that certain resistance genes exhibit decreased effectiveness against antibiotics like ertapenem and fosfomycin in low oxygen environments. Notably, the blaOXA-48ß-lactamase gene, associated with a clinically relevant plasmid, showed increased resistance to ertapenem under anaerobic conditions. The research also highlights that similar resistance pattern changes were observed in Klebsiella pneumoniae, suggesting that anaerobiosis plays a critical role in influencing antibiotic efficacy and the behavior of antimicrobial resistance (AMR) genes across different environments. The study underscores the importance of considering oxygen levels in understanding bacterial resistance mechanisms and their implications for antibiotic treatment strategies.
+```"
+5019,Article Publication Date,Apr 24 2025  6:30PM,2025 Apr 25
+5019,Status,Document Uploaded,Pending
+5123,Status,Document Uploaded,Pending
+5126,Status,Document Uploaded,Pending
