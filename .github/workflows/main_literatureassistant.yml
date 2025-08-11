@@ -52,4 +52,4 @@ jobs:
           app-name: 'literatureassistant'
           slot-name: 'Production'
           package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_37E4C213B37B4AFC9CA45A537772E06F }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_2C6664224B804A5CB4925A23E2CA1E59 }}
