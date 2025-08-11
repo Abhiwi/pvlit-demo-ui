@@ -36,9 +36,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // Database configurations
 const dbConfig = {
-  user: process.env.DB_USER,
+  user: process.env.DB_USER || 'EPLUATDBADMIN ',
   password: "P0wer&#$398Art",
-  server: process.env.DB_SERVER,
+  sserver: process.env.DB_SERVER || 'pharmacvuat.database.windows.net',,
   database: 'pharmaco',
   options: {
     encrypt: true,
@@ -50,9 +50,9 @@ const dbConfig = {
 };
 
 const loginDbConfig = {
-  user: process.env.DB_USER,
+  user: process.env.DB_USER || 'EPLUATDBADMIN ',
   password: "P0wer&#$398Art",
-  server: process.env.DB_SERVER,
+  server: process.env.DB_SERVER || 'pharmacvuat.database.windows.net',,
   database: 'pharmaco',
   options: {
     encrypt: true,
