@@ -248,12 +248,12 @@ const Sidebar = () => {
   const [error, setError] = useState('');
 
   const routes = [
-    { path: '/', label: 'Home', icon: Home, allowedRoles: [1, 2] },
-    { path: '/cases', label: 'Cases', icon: Folder, allowedRoles: [1] },
-   
-    { path: '/literature-review', label: 'Literature Review', icon: BookOpen, allowedRoles: [1] },
-    { path: '/medical-review', label: 'Medical Review', icon: Stethoscope, allowedRoles: [2] },
-  ];
+  { path: '/', label: 'Home', icon: Home, allowedRoles: [1, 2] },
+  { path: '/cases', label: 'Articles', icon: Folder, allowedRoles: [1] },
+  { path: '/drugs', label: 'Drug', icon: BarChart2, allowedRoles: [1] }, // Restrict to roleId 1
+  { path: '/literature-review', label: 'Literature Review', icon: BookOpen, allowedRoles: [1] },
+  { path: '/medical-review', label: 'Medical Review', icon: Stethoscope, allowedRoles: [2] },
+];
 
   const handleNavigation = (path, allowedRoles) => {
     if (user && allowedRoles.includes(user.roleId)) {
@@ -277,49 +277,82 @@ const Sidebar = () => {
   };
 
   // Filter routes based on user's roleId
-  const filteredRoutes = user ? routes.filter((route) => route.allowedRoles.includes(user.roleId)) : [];
+  const filteredRoutes = user 
+  ? routes.filter((route) => {
+      if (user.roleId === 2) {
+        return route.path === '/' || route.path === '/medical-review'; // Only Home and Medical Review for roleId 2
+      }
+      return route.allowedRoles.includes(user.roleId); // Default behavior for other roles
+    })
+  : [];
 
   return (
-    <div className="flex flex-col h-screen">
-      <header className="fixed top-0 left-0 right-0 z-10 flex items-center bg-[#fff] text-white h-16 px-6">
-        <div className="flex items-center">
-          <img src="/emcurelogo.jpg" alt="Logo" className="h-12 w-auto mr-4" />
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 shadow-sm border-b border-white" style={{backgroundColor: '#15222D'}}>
+        <div className="flex items-center h-16 px-6">
+          <div className="flex items-center">
+            <img 
+              src="/logodark.png" 
+              alt="DeepForrest Logo" 
+              className="h-10 w-auto mr-3 object-contain" 
+            />
+            <h1 className="text-xl font-semibold text-white hidden sm:block">
+              
+            </h1>
+          </div>
         </div>
       </header>
+
       <div className="flex pt-16 h-full">
-        <div className="w-64 h-full bg-[#14242c] text-white">
+        {/* Sidebar */}
+        <aside className="w-64 shadow-lg flex flex-col" style={{backgroundColor: '#15222D'}}>
+          {/* Error Message */}
           {error && (
-            <div className="px-6 py-2 bg-red-600 text-white text-sm">
-              {error}
+            <div className="mx-4 mt-4 px-4 py-3 bg-red-800 border border-red-600 rounded-lg">
+              <p className="text-sm text-red-100 font-medium">{error}</p>
             </div>
           )}
-          <nav className="mt-6">
-            <ul>
+
+          {/* Navigation */}
+          <nav className="flex-1 px-4 py-6">
+            <ul className="space-y-2">
               {filteredRoutes.map((route) => (
-                <li
-                  key={route.path}
-                  className="px-6 py-3 hover:bg-[#1e293b] cursor-pointer"
-                  onClick={() => handleNavigation(route.path, route.allowedRoles)}
-                >
-                  <div className="flex items-center">
-                    <route.icon className="mr-3" size={20} />
-                    <span>{route.label}</span>
-                  </div>
+                <li key={route.path}>
+                  <button
+                    onClick={() => handleNavigation(route.path, route.allowedRoles)}
+                    className="w-full flex items-center px-4 py-3 text-sm font-medium text-blue-100 rounded-lg hover:bg-blue-600 hover:text-white transition-colors duration-200 group"
+                  >
+                    <route.icon 
+                      className="mr-3 text-blue-200 group-hover:text-blue-100 transition-colors duration-200" 
+                      size={20} 
+                    />
+                    <span className="truncate">{route.label}</span>
+                  </button>
                 </li>
               ))}
             </ul>
           </nav>
-          {/* Logout Button */}
-          <div
-            className="mt-auto px-6 py-3 hover:bg-[#1e293b] cursor-pointer"
-            onClick={handleLogout}
-          >
-            <div className="flex items-center">
-              <LogOut className="mr-3" size={20} />
+
+          {/* Logout */}
+          <div className="border-t border-white p-4">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center px-4 py-3 text-sm font-medium text-red-200 rounded-lg hover:bg-blue-600 hover:text-red-100 transition-colors duration-200 group"
+            >
+              <LogOut 
+                className="mr-3 text-red-300 group-hover:text-red-200 transition-colors duration-200" 
+                size={20} 
+              />
               <span>Logout</span>
-            </div>
+            </button>
           </div>
-        </div>
+        </aside>
+
+        {/* Main Content Area Placeholder */}
+        <main className="flex-1 bg-gray-50">
+          {/* Your main content will go here */}
+        </main>
       </div>
     </div>
   );

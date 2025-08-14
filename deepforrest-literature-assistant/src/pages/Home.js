@@ -15315,7 +15315,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import * as d3 from 'd3';
 import { debounce } from 'lodash';
-import { Mail, FileText, AlertCircle, Users, MessageSquare, Calendar, ChevronRight } from 'lucide-react';
+import { Mail, FileText, AlertCircle, Users, MessageSquare, Calendar, ChevronRight, BarChart2 } from 'lucide-react';
 import DatabaseService from '../services/DatabaseService';
 
 const Home = () => {
@@ -15343,6 +15343,10 @@ const Home = () => {
   const casualityChartRef = useRef(null);
   const commentsChartRef = useRef(null);
   const timelineChartRef = useRef(null);
+  const drugChartRef = useRef(null);
+  const [drugCount, setDrugCount] = useState(0);
+  const [approvedCount, setApprovedCount] = useState(0);
+const [approvedArticles, setApprovedArticles] = useState([]);
   const [dateRange, setDateRange] = useState({
     startDate: getLastSevenDaysStart(),
     endDate: new Date().toISOString().split('T')[0]
@@ -15383,28 +15387,29 @@ const fetchRawData = useCallback(async () => {
       console.log('Raw dashboard response:', response);
       const { data, emailCount } = response;
       const processedData = data.map(item => {
-        const dateField = "IRD"; // Changed to IRD
-        let date, year, month, displayDate;
-        if (item[dateField]) {
-          const dateStr = item[dateField].toString();
-          if (dateStr) {
-            date = new Date(dateStr);
-            if (!isNaN(date.getTime())) {
-              year = date.getFullYear();
-              month = date.getMonth() + 1;
-              displayDate = date.toLocaleString('default', { month: 'short', year: 'numeric' });
-            }
-          }
-        }
-        const commentsField = "Comments (ICSR, AOI, Not selected)";
-        const comments = item[commentsField] ? item[commentsField].toString().toUpperCase() : 'Others';
-        const patientTypeField = Object.keys(item).find(key =>
-          key.toLowerCase().includes('patient') && key.toLowerCase().includes('type')
-        );
-        const patientType = patientTypeField && item[patientTypeField] ? item[patientTypeField].toString().trim() : 'Unknown';
-        return { date, year, month, displayDate, email: item.Mail, comments, patientType };
-      }).filter(item => item.date && !isNaN(item.date.getTime()));
-      rawDataCache.current = { processedData, emailCount }; // Cache processed data and email count
+  const dateField = "IRD"; // Changed to IRD
+  let date, year, month, displayDate;
+  if (item[dateField]) {
+    const dateStr = item[dateField].toString();
+    if (dateStr) {
+      date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        year = date.getFullYear();
+        month = date.getMonth() + 1;
+        displayDate = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+      }
+    }
+  }
+  const commentsField = "Comments (ICSR, AOI, Not selected)";
+  const comments = item[commentsField] ? item[commentsField].toString().toUpperCase() : 'Others';
+  const patientTypeField = Object.keys(item).find(key =>
+    key.toLowerCase().includes('patient') && key.toLowerCase().includes('type')
+  );
+  const patientType = patientTypeField && item[patientTypeField] ? item[patientTypeField].toString().trim() : 'Unknown';
+  return { date, year, month, displayDate, email: item.Mail, comments, patientType };
+}).filter(item => item.date && !isNaN(item.date.getTime()));
+const totalArticleCount = data.length; // Add total article count
+rawDataCache.current = { processedData, emailCount, totalArticleCount }; // Update cache
       setLoading(false);
       return rawDataCache.current;
     } catch (err) {
@@ -15419,84 +15424,58 @@ const fetchRawData = useCallback(async () => {
     }
   }, []);
 
-  const processDashboardData = useCallback(async (year, start, end) => {
-    const rawData = await fetchRawData();
-    const { processedData, emailCount } = rawData;
-    if (!processedData || processedData.length === 0) {
-      setStats({ eMailCount: 0, articleCount: 0, icsrCount: 0, aoiCount: 0 });
-      setPatientTypeData([]);
-      setCommentsData([]);
-      setTimelineData([]);
-      setAvailableYears([new Date().getFullYear()]);
-      return;
-    }
-    let icsrCount = 0;
-    let aoiCount = 0;
-    const patientTypeCounts = {};
-    const commentsCounts = { ICSR: 0, AOI: 0, Others: 0 };
-    const timelineDataByMonth = {};
-    const emailsByDate = {};
-    const allYears = new Set();
+const processDashboardData = useCallback(async (year, start, end) => {
+  const rawData = await fetchRawData();
+  const { processedData, emailCount } = rawData;
+  if (!processedData || processedData.length === 0) {
+    setStats({ eMailCount: 0, articleCount: 0, icsrCount: 0, aoiCount: 0 });
+    setPatientTypeData([]);
+    setCommentsData([]);
+    setTimelineData([]);
+    setAvailableYears([new Date().getFullYear()]);
+    console.log('processDashboardData: Resetting states due to empty data');
+    return;
+  }
 
-    processedData.forEach(item => {
-      const { year: itemYear, month, email, comments, patientType, displayDate, date } = item;
-      allYears.add(itemYear);
+  let totalIcsrCount = 0;
+  const icsrCountsByMonth = {};
+  const allYears = new Set();
 
-      if (itemYear === year && month >= start && month <= end) {
-        const yearMonthKey = `${itemYear}-${month.toString().padStart(2, '0')}`;
-        if (!timelineDataByMonth[yearMonthKey]) {
-          timelineDataByMonth[yearMonthKey] = {
-            year: itemYear,
-            month,
-            count: 0,
-            displayDate,
-            emailCount: 0
-          };
-        }
-        timelineDataByMonth[yearMonthKey].count++;
+  processedData.forEach(item => {
+    const { date, year: itemYear, month, comments } = item;
+    allYears.add(itemYear);
 
-        if (!emailsByDate[yearMonthKey]) emailsByDate[yearMonthKey] = new Set();
-        if (email && date) {
-          const emailDateKey = `${email}_${date.toISOString()}`;
-          emailsByDate[yearMonthKey].add(emailDateKey);
-        }
-
-        if (comments.includes('ICSR')) {
-          icsrCount++;
-          commentsCounts.ICSR++;
-        } else if (comments.includes('AOI')) {
-          aoiCount++;
-          commentsCounts.AOI++;
-        } else {
-          commentsCounts.Others++;
-        }
-
-        if (patientType) {
-          patientTypeCounts[patientType] = (patientTypeCounts[patientType] || 0) + 1;
-        }
+    if (itemYear === year && month >= start && month <= end) {
+      if (comments && comments.includes('ICSR')) {
+        totalIcsrCount++;
+        const monthKey = `${itemYear}-${month.toString().padStart(2, '0')}`;
+        icsrCountsByMonth[monthKey] = (icsrCountsByMonth[monthKey] || 0) + 1;
       }
-    });
+    }
+  });
 
-    Object.keys(timelineDataByMonth).forEach(key => {
-      timelineDataByMonth[key].emailCount = emailsByDate[key] ? emailsByDate[key].size : 0;
-    });
+  const timelineArray = Object.keys(icsrCountsByMonth).map(key => {
+    const [year, month] = key.split('-');
+    return {
+      year: parseInt(year),
+      month: parseInt(month),
+      count: icsrCountsByMonth[key],
+      displayDate: new Date(parseInt(year), parseInt(month) - 1, 1).toLocaleString('default', { month: 'short', year: 'numeric' })
+    };
+  }).sort((a, b) => a.month - b.month);
 
-    const timelineArray = Object.values(timelineDataByMonth).sort((a, b) => {
-      if (a.year !== b.year) return a.year - b.year;
-      return a.month - b.month;
-    });
-
-    setStats({
-      eMailCount: emailCount, // Use total email count from [dbo].[Mail]
-      articleCount: timelineArray.reduce((sum, d) => sum + d.count, 0),
-      icsrCount,
-      aoiCount
-    });
-    setPatientTypeData(Object.entries(patientTypeCounts).map(([type, count]) => ({ type, count })));
-    setCommentsData(Object.entries(commentsCounts).map(([item, count]) => ({ status: item, count })));
-    setTimelineData(timelineArray);
-    setAvailableYears(Array.from(allYears).sort());
-  }, [fetchRawData]);
+  setStats({
+  eMailCount: emailCount,
+  articleCount: processedData.length, // Total articles instead of ICSR count
+  icsrCount: totalIcsrCount,
+  aoiCount: 0
+});
+  setPatientTypeData([]);
+  setCommentsData([]);
+  setTimelineData(timelineArray);
+  setAvailableYears(Array.from(allYears).sort());
+  console.log('processDashboardData: Stats set - articleCount:', timelineArray.reduce((sum, d) => sum + d.count, 0));
+}, [fetchRawData]);
   // Debounced data processing
   const debouncedProcessDashboardData = useMemo(
     () => debounce(processDashboardData, 50),
@@ -15517,15 +15496,69 @@ const fetchRawData = useCallback(async () => {
     };
   }, [selectedYear, startMonth, endMonth, debouncedProcessDashboardData]);
 
+useEffect(() => {
+  const fetchApprovedCount = async () => {
+    try {
+      console.log('Starting fetchApprovedCount...');
+      const response = await fetch('/api/approved-count', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      console.log('Response received:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Fetch failed with status:', response.status, errorText);
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      console.log('Fetched data:', data);
+      setApprovedCount(data.approvedCount || 0);
+      console.log('Set approvedCount to:', data.approvedCount || 0);
+    } catch (error) {
+      console.error('Error fetching approved count:', error);
+      setApprovedCount(0);
+    }
+  };
+  fetchApprovedCount();
+}, []);
+
+useEffect(() => {
+  const fetchDrugCount = async () => {
+    try {
+      console.log('Starting fetchDrugCount...', 'URL:', 'http://localhost:5000/api/drug-count');
+      const response = await fetch('http://localhost:5000/api/drug-count');
+      console.log('Response received:', response.status, 'OK:', response.ok);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Fetch failed with status:', response.status, 'Details:', errorText);
+        throw new Error(`Network response was not ok - ${response.status}`);
+      }
+      const data = await response.json();
+      console.log('Fetched data from API:', data);
+      setDrugCount(data.drugCount || 0);
+      console.log('Set drugCount to:', data.drugCount || 0);
+    } catch (error) {
+      console.error('Error fetching drug count:', error.message, 'Stack:', error.stack);
+      setDrugCount(0);
+    }
+  };
+  fetchDrugCount();
+}, []);
+
+// Add this to log state changes
+useEffect(() => {
+  console.log('Current approvedCount state:', approvedCount);
+  console.log('Current drugCount state:', drugCount);
+  console.log('Current stats state:', stats);
+}, [approvedCount, drugCount, stats]);
   // Render charts when data is ready
   useEffect(() => {
-    if (!loading && isChartRendered) {
-      renderPatientTypeChart();
-      renderCommentsChart();
-      renderTimelineChart();
-      if (casualityData.length > 0) renderCasualityChart();
-    }
-  }, [loading, isChartRendered, patientTypeData, commentsData, timelineData, casualityData, emailFilter]);
+  if (!loading && isChartRendered) {
+    renderPatientTypeChart();
+    renderCommentsChart();
+    renderTimelineChart(); // Ensure this is included
+    if (casualityData.length > 0) renderCasualityChart();
+  }
+}, [loading, isChartRendered, patientTypeData, commentsData, timelineData, casualityData, emailFilter]);
 
   // Patient type chart rendering (from first snippet)
   const renderPatientTypeChart = useCallback(() => {
@@ -15962,394 +15995,217 @@ const fetchRawData = useCallback(async () => {
 
   // Timeline chart rendering (from first snippet)
   const renderTimelineChart = useCallback(() => {
-    if (!timelineChartRef.current) return;
+  if (!timelineChartRef.current) return;
 
-    const filteredData = timelineData.filter((d) => d.year === selectedYear);
-    const monthRangeFilteredData = filteredData.filter(
-      (d) => d.month >= startMonth && d.month <= endMonth
-    );
-    const finalFilteredData = emailFilter !== null
-      ? monthRangeFilteredData.filter((d) => d.emailCount >= emailFilter)
-      : monthRangeFilteredData;
+  const filteredData = timelineData.filter((d) => d.year === selectedYear);
+  const monthRangeFilteredData = filteredData.filter(
+    (d) => d.month >= startMonth && d.month <= endMonth
+  );
 
-    if (finalFilteredData.length === 0) {
-      d3.select(timelineChartRef.current).selectAll("*").remove();
-      d3.select(timelineChartRef.current)
-        .append("div")
-        .attr("class", "flex items-center justify-center h-full")
-        .append("p")
-        .attr("class", "text-gray-500")
-        .text("No data available for the selected filters");
-      return;
-    }
-
-    finalFilteredData.sort((a, b) => {
-      if (a.year !== b.year) return a.year - b.year;
-      return a.month - b.month;
-    });
-
+  if (monthRangeFilteredData.length === 0) {
     d3.select(timelineChartRef.current).selectAll("*").remove();
+    d3.select(timelineChartRef.current)
+      .append("div")
+      .attr("class", "flex items-center justify-center h-full")
+      .append("p")
+      .attr("class", "text-gray-500")
+      .text("No ICSR data available for the selected filters");
+    return;
+  }
 
-    const margin = { top: 30, right: 80, bottom: 60, left: 60 };
-    const width = timelineChartRef.current.clientWidth - margin.left - margin.right;
-    const height = 350 - margin.top - margin.bottom;
+  d3.select(timelineChartRef.current).selectAll("*").remove();
 
-    const svg = d3
-      .select(timelineChartRef.current)
-      .append("svg")
-      .attr("width", width + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom)
-      .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
+  const margin = { top: 40, right: 80, bottom: 70, left: 60 };
+  const width = timelineChartRef.current.clientWidth - margin.left - margin.right;
+  const height = 350 - margin.top - margin.bottom;
 
-    const x = d3
-      .scalePoint()
-      .domain(finalFilteredData.map((d) => d.displayDate))
-      .range([0, width])
-      .padding(0.5);
+  const svg = d3
+    .select(timelineChartRef.current)
+    .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const yArticles = d3
-      .scaleLinear()
-      .domain([0, d3.max(finalFilteredData, (d) => d.count) * 1.2])
-      .range([height, 0]);
+  const x = d3
+    .scalePoint()
+    .domain(monthRangeFilteredData.map((d) => d.displayDate))
+    .range([0, width])
+    .padding(0.5);
 
-    const yEmails = d3
-      .scaleLinear()
-      .domain([0, d3.max(finalFilteredData, (d) => d.emailCount) * 1.2 || 10])
-      .range([height, 0]);
+  const y = d3
+    .scaleLinear()
+    .domain([0, d3.max(monthRangeFilteredData, (d) => d.count) * 1.2 || 10])
+    .range([height, 0]);
 
-    svg
-      .append("g")
-      .attr("class", "grid")
-      .attr("opacity", 0.1)
-      .call(
-        d3
-          .axisLeft(yArticles)
-          .ticks(5)
-          .tickSize(-width)
-          .tickFormat("")
-      )
-      .select(".domain")
-      .remove();
+  // Grid lines
+  svg
+    .append("g")
+    .attr("class", "grid")
+    .attr("opacity", 0.1)
+    .call(
+      d3
+        .axisLeft(y)
+        .ticks(5)
+        .tickSize(-width)
+        .tickFormat("")
+    )
+    .select(".domain")
+    .remove();
 
-    svg
-      .append("g")
-      .attr("transform", `translate(0,${height})`)
-      .call(d3.axisBottom(x).tickSize(0))
-      .select(".domain")
-      .attr("stroke", BORDER_COLOR);
+  // X-axis
+  svg
+    .append("g")
+    .attr("transform", `translate(0,${height})`)
+    .call(d3.axisBottom(x).tickSize(0))
+    .select(".domain")
+    .attr("stroke", BORDER_COLOR)
+    .selectAll("text")
+    .style("text-anchor", "end")
+    .style("font-size", "12px")
+    .style("fill", TEXT_COLOR)
+    .attr("dy", "0.5em")
+    .attr("dx", "-0.8em")
+    .attr("transform", "rotate(-45)");
 
-    svg
-      .selectAll(".tick text")
-      .style("text-anchor", "end")
-      .style("font-size", "12px")
-      .style("font-weight", "400")
-      .style("fill", TEXT_COLOR)
-      .attr("dy", "0.5em")
-      .attr("dx", "-0.8em")
-      .attr("transform", "rotate(-45)");
+  // Y-axis
+  svg
+    .append("g")
+    .call(
+      d3
+        .axisLeft(y)
+        .ticks(5)
+        .tickFormat((d) => d)
+        .tickSize(0)
+    )
+    .select(".domain")
+    .attr("stroke", BORDER_COLOR)
+    .selectAll("text")
+    .style("font-size", "12px")
+    .style("fill", MUTED_TEXT);
 
-    svg
-      .append("g")
-      .call(
-        d3
-          .axisLeft(yArticles)
-          .ticks(5)
-          .tickFormat((d) => d)
-          .tickSize(0)
-      )
-      .select(".domain")
-      .attr("stroke", BORDER_COLOR);
+  // Area fill
+  const area = d3
+    .area()
+    .x((d) => x(d.displayDate))
+    .y0(height)
+    .y1((d) => y(d.count))
+    .curve(d3.curveMonotoneX);
 
-    svg
-      .append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("y", -margin.left + 15)
-      .attr("x", -height / 2)
-      .attr("text-anchor", "middle")
-      .style("font-size", "12px")
-      .style("font-weight", "bold")
-      .style("fill", PRIMARY_COLOR)
-      .text("Articles");
+  const defs = svg.append("defs");
+  const gradient = defs
+    .append("linearGradient")
+    .attr("id", "area-gradient")
+    .attr("x1", "0%")
+    .attr("y1", "100%")
+    .attr("x2", "0%")
+    .attr("y2", "0%");
 
-    svg
-      .append("g")
-      .attr("transform", `translate(${width}, 0)`)
-      .call(
-        d3
-          .axisRight(yEmails)
-          .ticks(5)
-          .tickFormat((d) => d)
-          .tickSize(0)
-      )
-      .select(".domain")
-      .attr("stroke", BORDER_COLOR);
+  gradient
+    .append("stop")
+    .attr("offset", "0%")
+    .attr("stop-color", PRIMARY_COLOR)
+    .attr("stop-opacity", 0.1);
 
-    svg
-      .append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("y", width + margin.right - 15)
-      .attr("x", -height / 2)
-      .attr("text-anchor", "middle")
-      .style("font-size", "12px")
-      .style("font-weight", "bold")
-      .style("fill", ACCENT_COLOR)
-      .text("Emails");
+  gradient
+    .append("stop")
+    .attr("offset", "100%")
+    .attr("stop-color", PRIMARY_COLOR)
+    .attr("stop-opacity", 0.4);
 
-    svg
-      .selectAll("g.tick text")
-      .style("font-size", "12px")
-      .style("fill", MUTED_TEXT);
+  svg
+    .append("path")
+    .datum(monthRangeFilteredData)
+    .attr("fill", "url(#area-gradient)")
+    .attr("d", area);
 
-    const articleLine = d3
-      .line()
-      .x((d) => x(d.displayDate))
-      .y((d) => yArticles(d.count))
-      .curve(d3.curveMonotoneX);
+  // Line
+  const line = d3
+    .line()
+    .x((d) => x(d.displayDate))
+    .y((d) => y(d.count))
+    .curve(d3.curveMonotoneX);
 
-    const emailLine = d3
-      .line()
-      .x((d) => x(d.displayDate))
-      .y((d) => yEmails(d.emailCount))
-      .curve(d3.curveMonotoneX);
+  const path = svg
+    .append("path")
+    .datum(monthRangeFilteredData)
+    .attr("fill", "none")
+    .attr("stroke", PRIMARY_COLOR)
+    .attr("stroke-width", 3)
+    .attr("stroke-linejoin", "round")
+    .attr("stroke-linecap", "round")
+    .attr("d", line)
+    .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.1))");
 
-    const defs = svg.append("defs");
+  const pathLength = path.node().getTotalLength();
+  path
+    .attr("stroke-dasharray", pathLength)
+    .attr("stroke-dashoffset", pathLength)
+    .transition()
+    .duration(1500)
+    .attr("stroke-dashoffset", 0);
 
-    const articleGradient = defs
-      .append("linearGradient")
-      .attr("id", "article-line-gradient")
-      .attr("gradientUnits", "userSpaceOnUse")
-      .attr("x1", 0)
-      .attr("y1", 0)
-      .attr("x2", 0)
-      .attr("y2", height);
+  // Points
+  svg
+    .selectAll(".point")
+    .data(monthRangeFilteredData)
+    .enter()
+    .append("circle")
+    .attr("class", "point")
+    .attr("cx", (d) => x(d.displayDate))
+    .attr("cy", (d) => y(d.count))
+    .attr("r", 5)
+    .attr("fill", ACCENT_COLOR)
+    .attr("stroke", "#fff")
+    .attr("stroke-width", 2)
+    .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.1))")
+    .on("mouseover", function (event, d) {
+      d3.select(this)
+        .transition()
+        .duration(200)
+        .attr("r", 7)
+        .attr("stroke-width", 3);
 
-    articleGradient
-      .append("stop")
-      .attr("offset", "0%")
-      .attr("stop-color", PRIMARY_COLOR);
-
-    articleGradient
-      .append("stop")
-      .attr("offset", "100%")
-      .attr("stop-color", PRIMARY_COLOR)
-      .attr("stop-opacity", 0.8);
-
-    const emailGradient = defs
-      .append("linearGradient")
-      .attr("id", "email-line-gradient")
-      .attr("gradientUnits", "userSpaceOnUse")
-      .attr("x1", 0)
-      .attr("y1", 0)
-      .attr("x2", 0)
-      .attr("y2", height);
-
-    emailGradient
-      .append("stop")
-      .attr("offset", "0%")
-      .attr("stop-color", ACCENT_COLOR);
-
-    emailGradient
-      .append("stop")
-      .attr("offset", "100%")
-      .attr("stop-color", ACCENT_COLOR)
-      .attr("stop-opacity", 0.8);
-
-    const articlePath = svg
-      .append("path")
-      .datum(finalFilteredData)
-      .attr("fill", "none")
-      .attr("stroke", "url(#article-line-gradient)")
-      .attr("stroke-width", 3)
-      .attr("stroke-linejoin", "round")
-      .attr("stroke-linecap", "round")
-      .attr("d", articleLine)
-      .style("opacity", 0.8)
-      .style("filter", "drop-shadow(0px 2px 2px rgba(0, 0, 0, 0.1))");
-
-    const articlePathLength = articlePath.node().getTotalLength();
-    articlePath
-      .attr("stroke-dasharray", articlePathLength)
-      .attr("stroke-dashoffset", articlePathLength)
-      .transition()
-      .duration(1500)
-      .attr("stroke-dashoffset", 0);
-
-    const emailPath = svg
-      .append("path")
-      .datum(finalFilteredData)
-      .attr("fill", "none")
-      .attr("stroke", "url(#email-line-gradient)")
-      .attr("stroke-width", 3)
-      .attr("stroke-linejoin", "round")
-      .attr("stroke-linecap", "round")
-      .attr("stroke-dasharray", "5,5")
-      .attr("d", emailLine)
-      .style("opacity", 0.8);
-
-    const emailPathLength = emailPath.node().getTotalLength();
-    emailPath
-      .attr("stroke-dasharray", `5, 5, ${emailPathLength}`)
-      .attr("stroke-dashoffset", emailPathLength)
-      .transition()
-      .duration(1500)
-      .delay(300)
-      .attr("stroke-dasharray", "5,5")
-      .attr("stroke-dashoffset", 0);
-
-    svg
-      .selectAll(".article-point")
-      .data(finalFilteredData)
-      .enter()
-      .append("circle")
-      .attr("class", "article-point")
-      .attr("cx", (d) => x(d.displayDate))
-      .attr("cy", (d) => yArticles(d.count))
-      .attr("r", 5)
-      .attr("fill", "#fff")
-      .attr("stroke", PRIMARY_COLOR)
-      .attr("stroke-width", 2)
-      .style("opacity", 0)
-      .style("filter", "drop-shadow(0px 2px 2px rgba(0, 0, 0, 0.1))")
-      .on("mouseover", function (event, d) {
-        d3.select(this)
-          .transition()
-          .duration(200)
-          .attr("r", 7)
-          .attr("stroke-width", 3);
-
-        const tooltipContent = `
-          <div class="p-2">
-            <div class="font-bold">${d.displayDate}</div>
-            <div>Articles: ${d.count}</div>
-            <div>Emails: ${d.emailCount}</div>
+      d3.select("#timeline-tooltip")
+        .style("opacity", 1)
+        .style("background", "#fff")
+        .style("border", `1px solid ${BORDER_COLOR}`)
+        .style("padding", "8px")
+        .style("border-radius", "6px")
+        .style("box-shadow", "0 4px 6px rgba(0,0,0,0.1)")
+        .style("left", `${event.pageX + 10}px`)
+        .style("top", `${event.pageY - 28}px`)
+        .html(`
+          <div class="text-sm">
+            <div class="font-bold text-gray-800">${d.displayDate}</div>
+            <div class="text-gray-600">ICSR Count: ${d.count}</div>
           </div>
-        `;
+        `);
+    })
+    .on("mouseout", function () {
+      d3.select(this)
+        .transition()
+        .duration(200)
+        .attr("r", 5)
+        .attr("stroke-width", 2);
 
-        d3.select("#timeline-tooltip")
-          .style("opacity", 1)
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY - 28}px`)
-          .html(tooltipContent);
-      })
-      .on("mouseout", function () {
-        d3.select(this)
-          .transition()
-          .duration(200)
-          .attr("r", 5)
-          .attr("stroke-width", 2);
+      d3.select("#timeline-tooltip").style("opacity", 0);
+    })
+    .transition()
+    .duration(300)
+    .delay((d, i) => 1500 + i * 50)
+    .style("opacity", 1);
 
-        d3.select("#timeline-tooltip").style("opacity", 0);
-      })
-      .transition()
-      .duration(300)
-      .delay((d, i) => 1500 + i * 50)
-      .style("opacity", 1);
-
-    svg
-      .selectAll(".email-point")
-      .data(finalFilteredData)
-      .enter()
-      .append("circle")
-      .attr("class", "email-point")
-      .attr("cx", (d) => x(d.displayDate))
-      .attr("cy", (d) => yEmails(d.emailCount))
-      .attr("r", 4)
-      .attr("fill", "#fff")
-      .attr("stroke", ACCENT_COLOR)
-      .attr("stroke-width", 2)
+  if (!document.getElementById("timeline-tooltip")) {
+    d3.select("body")
+      .append("div")
+      .attr("id", "timeline-tooltip")
+      .style("position", "absolute")
+      .style("pointer-events", "none")
       .style("opacity", 0)
-      .style("filter", "drop-shadow(0px 2px 2px rgba(0, 0, 0, 0.1))")
-      .on("mouseover", function (event, d) {
-        d3.select(this)
-          .transition()
-          .duration(200)
-          .attr("r", 6)
-          .attr("stroke-width", 3);
-
-        const tooltipContent = `
-          <div class="p-2">
-            <div class="font-bold">${d.displayDate}</div>
-            <div>Articles: ${d.count}</div>
-            <div>Emails: ${d.emailCount}</div>
-          </div>
-        `;
-
-        d3.select("#timeline-tooltip")
-          .style("opacity", 1)
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY - 28}px`)
-          .html(tooltipContent);
-      })
-      .on("mouseout", function () {
-        d3.select(this)
-          .transition()
-          .duration(200)
-          .attr("r", 4)
-          .attr("stroke-width", 2);
-
-        d3.select("#timeline-tooltip").style("opacity", 0);
-      })
-      .transition()
-      .duration(300)
-      .delay((d, i) => 1800 + i * 50)
-      .style("opacity", 1);
-
-    const legend = svg
-      .append("g")
-      .attr("transform", `translate(${width - 120}, 10)`);
-
-    legend
-      .append("line")
-      .attr("x1", 0)
-      .attr("y1", 0)
-      .attr("x2", 20)
-      .attr("y2", 0)
-      .attr("stroke", PRIMARY_COLOR)
-      .attr("stroke-width", 3);
-
-    legend
-      .append("text")
-      .attr("x", 25)
-      .attr("y", 4)
-      .text("Articles")
-      .style("font-size", "12px")
-      .style("font-weight", "medium")
-      .style("fill", TEXT_COLOR);
-
-    legend
-      .append("line")
-      .attr("x1", 0)
-      .attr("y1", 20)
-      .attr("x2", 20)
-      .attr("y2", 20)
-      .attr("stroke", ACCENT_COLOR)
-      .attr("stroke-width", 3)
-      .attr("stroke-dasharray", "5,5");
-
-    legend
-      .append("text")
-      .attr("x", 25)
-      .attr("y", 24)
-      .text("Emails")
-      .style("font-size", "12px")
-      .style("font-weight", "medium")
-      .style("fill", TEXT_COLOR);
-
-    if (!document.getElementById("timeline-tooltip")) {
-      d3.select("body")
-        .append("div")
-        .attr("id", "timeline-tooltip")
-        .style("position", "absolute")
-        .style("background", "white")
-        .style("padding", "5px")
-        .style("border-radius", "5px")
-        .style("box-shadow", "0 2px 5px rgba(0,0,0,0.2)")
-        .style("pointer-events", "none")
-        .style("opacity", 0)
-        .style("z-index", 10);
-    }
-  }, [timelineData, selectedYear, startMonth, endMonth, emailFilter]);
+      .style("z-index", 10);
+  }
+}, [timelineData, selectedYear, startMonth, endMonth]);
 
   // Casuality chart rendering (from first snippet)
   const renderCasualityChart = useCallback(() => {
@@ -16543,7 +16399,7 @@ const fetchRawData = useCallback(async () => {
         <h1 className="text-3xl font-bold text-gray-800 mb-1">Dashboard</h1>
         <div className="flex items-center mt-2">
           <div className="h-1 w-10 bg-blue-900 rounded mr-3"></div>
-          <p className="text-gray-600">DeepForrest Literature Assistant | {currentDate}</p>
+          <p className="text-gray-600">DeepForrest AI Literature Assistant | {currentDate}</p>
         </div>
       </div>
 
@@ -16612,110 +16468,147 @@ const fetchRawData = useCallback(async () => {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div
-              className="slideInUp bg-white rounded-lg shadow-lg p-6 border-l-4 border-[#14242c] transition-all duration-300 transform hover:scale-102 hover:shadow-xl cursor-pointer relative overflow-hidden"
-              style={{ animationDelay: '100ms', background: `linear-gradient(135deg, white 60%, rgba(20, 36, 44, 0.05))` }}
-              onClick={() => {
-                const queryParams = new URLSearchParams();
-                queryParams.set('year', selectedYear);
-                queryParams.set('startMonth', startMonth);
-                queryParams.set('endMonth', endMonth);
-                queryParams.set('filterType', 'uniqueEmailsWithDate');
-                const route = localStorage.getItem('roleId') === '2' ? '/medical-review' : '/literature-review';
-                navigate(`${route}?${queryParams.toString()}`);
-              }}
-            >
-              <div className="absolute right-0 top-0 h-full w-1/4 bg-gradient-to-l from-blue-900/5 to-transparent z-0"></div>
-              <div className="relative z-10 flex items-start">
-                <div className="rounded-full bg-[rgb(65,120,169)] p-3 mr-4 shadow-md">
-                  <Mail size={20} className="text-white" />
-                </div>
-                <div className="flex-grow">
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Emails</h3>
-                  <p className="text-2xl font-bold text-gray-800">{formatNumber(stats.eMailCount)}</p>
-                  <p className="text-xs text-gray-500 mt-1">Total unique correspondence</p>
-                </div>
-                <ChevronRight size={18} className="text-blue-900 self-center" />
-              </div>
-            </div>
+  <div
+    className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-900 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 cursor-pointer relative overflow-hidden"
+    style={{ background: `linear-gradient(135deg, ${LIGHT_BG} 60%, rgba(65, 120, 169, 0.05))` }}
+    onClick={() => {
+      const queryParams = new URLSearchParams();
+      queryParams.set('year', selectedYear);
+      queryParams.set('startMonth', startMonth);
+      queryParams.set('endMonth', endMonth);
+      queryParams.set('filterType', 'uniqueEmailsWithDate');
+      const route = localStorage.getItem('roleId') === '2' ? '/medical-review' : '/literature-review';
+      navigate(`${route}?${queryParams.toString()}`);
+    }}
+  >
+    <div className="absolute right-0 top-0 h-full w-1/4 bg-gradient-to-l from-blue-900/10 to-transparent z-0"></div>
+    <div className="relative z-10 flex items-center">
+      <div className="rounded-full bg-blue-900 p-3 mr-4 shadow-sm">
+        <Mail size={20} className="text-white" />
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold text-gray-600 mb-1">Emails</h3>
+        <p className="text-3xl font-bold text-gray-900">{formatNumber(stats.eMailCount)}</p>
+        <p className="text-xs text-gray-500 mt-1">Total unique correspondence</p>
+      </div>
+    </div>
+  </div>
 
-            <div
-              className="slideInUp bg-white rounded-lg shadow-lg p-6 border-l-4 border-[#14242c] transition-all duration-300 transform hover:scale-102 hover:shadow-xl cursor-pointer relative overflow-hidden"
-              style={{ animationDelay: '200ms', background: `linear-gradient(135deg, white 60%, rgba(20, 36, 44, 0.05))` }}
-              onClick={() => handleCardClick('/cases')}
-            >
-              <div className="absolute right-0 top-0 h-full w-1/4 bg-gradient-to-l from-blue-900/5 to-transparent z-0"></div>
-              <div className="relative z-10 flex items-start">
-                <div className="rounded-full bg-[rgb(65,120,169)] p-3 mr-4 shadow-md">
-                  <FileText size={20} className="text-white" />
-                </div>
-                <div className="flex-grow">
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">All Articles</h3>
-                  <p className="text-2xl font-bold text-gray-800">{formatNumber(stats.articleCount)}</p>
-                  <p className="text-xs text-gray-500 mt-1">Literature reviews collected</p>
-                </div>
-                <ChevronRight size={18} className="text-blue-900 self-center" />
-              </div>
-            </div>
+  <div
+    className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-900 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 cursor-pointer relative overflow-hidden"
+    style={{ background: `linear-gradient(135deg, ${LIGHT_BG} 60%, rgba(65, 120, 169, 0.05))` }}
+    onClick={() => handleCardClick('/cases')}
+  >
+    <div className="absolute right-0 top-0 h-full w-1/4 bg-gradient-to-l from-blue-900/10 to-transparent z-0"></div>
+    <div className="relative z-10 flex items-center">
+      <div className="rounded-full bg-blue-900 p-3 mr-4 shadow-sm">
+        <FileText size={20} className="text-white" />
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold text-gray-600 mb-1">All Articles</h3>
+        <p className="text-3xl font-bold text-gray-900">{formatNumber(stats.articleCount)}</p>
+        <p className="text-xs text-gray-500 mt-1">Literature reviews collected</p>
+      </div>
+    </div>
+  </div>
 
-            <div
-              className="slideInUp bg-white rounded-lg shadow-lg p-6 border-l-4 border-[#14242c] transition-all duration-300 transform hover:scale-102 hover:shadow-xl cursor-pointer relative overflow-hidden"
-              style={{ animationDelay: '300ms', background: `linear-gradient(135deg, white 60%, rgba(20, 36, 44, 0.05))` }}
-              onClick={() => handleCardClick('/medical-review')}
-            >
-              <div className="absolute right-0 top-0 h-full w-1/4 bg-gradient-to-l from-blue-900/5 to-transparent z-0"></div>
-              <div className="relative z-10 flex items-start">
-                <div className="rounded-full bg-[rgb(65,120,169)] p-3 mr-4 shadow-md">
-                  <AlertCircle size={20} className="text-white" />
-                </div>
-                <div className="flex-grow">
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">ICSR / AOI Cases</h3>
-                  <div className="flex items-center space-x-2">
-                    <p className="text-2xl font-bold text-gray-800">{stats.icsrCount} / {stats.aoiCount}</p>
-                    <span className="text-xs font-medium px-2 py-1 bg-blue-900/10 rounded-full text-blue-900">
-                      Total: {stats.icsrCount + stats.aoiCount}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">(For Medical Reviewer)</p>
-                </div>
-                <ChevronRight size={18} className="text-blue-900 self-center" />
-              </div>
-            </div>
-          </div>
+  <div
+    className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-900 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 cursor-pointer relative overflow-hidden"
+    style={{ background: `linear-gradient(135deg, ${LIGHT_BG} 60%, rgba(65, 120, 169, 0.05))` }}
+    onClick={() => {
+      const queryParams = new URLSearchParams();
+      queryParams.set('comments', 'ICSR');
+      queryParams.set('startMonth', startMonth);
+      queryParams.set('endMonth', endMonth);
+      queryParams.set('year', selectedYear);
+      navigate(`/cases?${queryParams.toString()}`);
+    }}
+  >
+    <div className="absolute right-0 top-0 h-full w-1/4 bg-gradient-to-l from-blue-900/10 to-transparent z-0"></div>
+    <div className="relative z-10 flex items-center">
+      <div className="rounded-full bg-blue-900 p-3 mr-4 shadow-sm">
+        <AlertCircle size={20} className="text-white" />
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold text-gray-600 mb-1">ICSR Count</h3>
+        <p className="text-3xl font-bold text-gray-900">{formatNumber(stats.icsrCount)}</p>
+        <p className="text-xs text-gray-500 mt-1">View ICSR Articles</p>
+      </div>
+    </div>
+  </div>
+</div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            <div className="fadeIn bg-white rounded-lg shadow-sm p-6" style={{ animationDelay: '400ms' }}>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-medium text-gray-800 flex items-center">
-                  <Users size={18} className="mr-2 text-blue-900" />
-                  Patient Type Distribution
-                </h3>
-                <div className="px-3 py-1 bg-blue-900/10 rounded-full">
-                  <span className="text-xs font-medium text-blue-900">Distribution Analysis</span>
-                </div>
-              </div>
-              <div className="h-80" ref={patientTypeChartRef}></div>
-            </div>
-
-            <div className="fadeIn bg-white rounded-lg shadow-sm p-6" style={{ animationDelay: '600ms' }}>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-medium text-gray-800 flex items-center">
-                  <MessageSquare size={18} className="mr-2 text-blue-900" />
-                  Comments Distribution
-                </h3>
-                <div className="px-3 py-1 bg-blue-900/10 rounded-full">
-                  <span className="text-xs font-medium text-blue-900">ICSR & AOI Analysis</span>
-                </div>
-              </div>
-              <div className="h-72" ref={commentsChartRef}></div>
-            </div>
-          </div>
+<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+  <div
+  key={drugCount} // Forces re-render on drugCount change
+  className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-900 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden"
+  style={{ background: `linear-gradient(135deg, ${LIGHT_BG} 60%, rgba(65, 120, 169, 0.05))` }}
+>
+  <div className="absolute right-0 top-0 h-full w-1/4 bg-gradient-to-l from-blue-900/10 to-transparent z-0"></div>
+  <div className="relative z-10 flex items-center">
+    <div className="rounded-full bg-blue-900 p-3 mr-4 shadow-sm">
+      <BarChart2 size={20} className="text-white" />
+    </div>
+    <div>
+      <h3 className="text-sm font-semibold text-gray-600 mb-1">Total Drug Count</h3>
+      <p className="text-3xl font-bold text-gray-900">
+        {formatNumber(drugCount)} <span style={{ fontSize: '12px' }}> </span>
+      </p>
+      <p className="text-xs text-gray-500 mt-1">Unique drugs recorded</p>
+    </div>
+  </div>
+</div>
+  <div
+  key={approvedCount}
+  className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-900 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden"
+  style={{ background: `linear-gradient(135deg, ${LIGHT_BG} 60%, rgba(65, 120, 169, 0.05))` }}
+>
+  <div className="absolute right-0 top-0 h-full w-1/4 bg-gradient-to-l from-blue-900/10 to-transparent z-0"></div>
+  <div className="relative z-10 flex items-center">
+    <div className="rounded-full bg-blue-900 p-3 mr-4 shadow-sm">
+      <FileText size={20} className="text-white" />
+    </div>
+    <div>
+      <h3 className="text-sm font-semibold text-gray-600 mb-1">Approved Articles for Medical Admin</h3>
+      <p className="text-3xl font-bold text-gray-900">
+        {formatNumber(approvedCount)} <span style={{ fontSize: '12px' }}> </span>
+      </p>
+      <p className="text-xs text-gray-500 mt-1">Total articles sent for medical admin</p>
+    </div>
+  </div>
+</div>
+  <div
+    className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-900 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 cursor-pointer relative overflow-hidden"
+    style={{ background: `linear-gradient(135deg, ${LIGHT_BG} 60%, rgba(65, 120, 169, 0.05))` }}
+    onClick={() => {
+      const queryParams = new URLSearchParams();
+      queryParams.set('year', selectedYear);
+      queryParams.set('startMonth', startMonth);
+      queryParams.set('endMonth', endMonth);
+      navigate(`/drugs?${queryParams.toString()}`);
+    }}
+  >
+    <div className="absolute right-0 top-0 h-full w-1/4 bg-gradient-to-l from-blue-900/10 to-transparent z-0"></div>
+    <div className="relative z-10 flex items-center justify-between">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+          <BarChart2 size={18} className="text-sm font-semibold text-gray-600 mb-1" />
+          Drug
+        </h3>
+        <p className="text-xs text-gray-500 mt-1">View drug distribution and analysis.</p>
+      </div>
+      <div className="px-2 py-1 bg-blue-900/10 rounded-full">
+        <span className="text-xs font-medium text-blue-900">Drug Analysis</span>
+      </div>
+    </div>
+  </div>
+</div>
 
           <div className="fadeIn bg-white rounded-lg shadow-sm p-6 mb-8" style={{ animationDelay: '800ms' }}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-medium text-gray-800 flex items-center">
                 <Calendar size={18} className="mr-2 text-blue-900" />
-                Monthly Article Processing
+                Monthly ICSR Counts
               </h3>
             </div>
             <div className="h-80" ref={timelineChartRef}></div>

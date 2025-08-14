@@ -46,7 +46,7 @@ import Cases from './pages/Cases';
 import Dashboard from './pages/Dashboard';
 import LiteratureReview from './pages/LiteratureReview';
 import MedicalReview from './pages/MedicalReview';
-
+import Drugs from './pages/Drugs';
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, user, loading } = useAuth();
 
@@ -129,11 +129,20 @@ const AppRoutes = () => {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/drugs"
+            element={
+              <ProtectedRoute allowedRoles={[1, 2]}>
+                <Layout>
+                  <Drugs />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>
     </AuthProvider>
   );
 };
-
 export default AppRoutes;

@@ -6024,7 +6024,7 @@ const MedicalReviewContent = () => {
         IRD: item['Search Date'] || item['IRD'],
       }));
       setLiteratureData(mappedData);
-      setFilteredData(mappedData);
+      setFilteredData(mappedData); // Ensure initial filtered data includes all records
       setLoading(false);
       await refreshLockStatus();
     } catch (err) {
@@ -6135,6 +6135,7 @@ useEffect(() => {
 
   let filtered = literatureData;
 
+  // Include all records, regardless of status
   if (searchTerm) {
     const searchLower = searchTerm.toLowerCase();
     filtered = filtered.filter(item => {
@@ -6252,8 +6253,7 @@ useEffect(() => {
       });
 
       setLiteratureData(newData);
-      setFilteredData(newData.filter(item => filteredData.some(f => f['Article PMID'] === item['Article PMID'] && f['Drug'] === item['Drug'])));
-
+      setFilteredData(newData); // Replace with full updated dataset
       showToast(`Successfully verified ${updatedCount} record(s)`);
       await releaseLock(recordId);
       fetchMedicalReviewData();

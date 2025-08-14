@@ -828,7 +828,19 @@ async updateCaseStatus(id, drug, status, clientId = null) {
       return [];
     }
   }
-
+  async fetchApprovedCount(year, startMonth, endMonth) {
+  const url = `/api/approved-count?year=${year}&startMonth=${startMonth}&endMonth=${endMonth}`;
+  console.log('Fetching from:', url); // Add this line
+  const response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+  });
+  if (!response.ok) {
+    const errorText = await response.text(); // Log error details
+    console.error('Fetch failed with status:', response.status, errorText);
+    throw new Error('Network response was not ok');
+  }
+  return response.json();
+}
   async acquireLock(recordId, clientId) {
     try {
       console.log(`Attempting to acquire lock for record ${recordId} by client ${clientId}`);

@@ -36,10 +36,10 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // Database configurations
 const dbConfig = {
-  user: process.env.DB_USER || 'EPLUATDBADMIN ',
-  password: "P0wer&#$398Art",
-  server: process.env.DB_SERVER || 'pharmacvuat.database.windows.net',
-  database: 'pharmaco',
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD ,
+  server: process.env.DB_SERVER,
+  database: 'biov2',
   options: {
     encrypt: true,
     trustServerCertificate: false,
@@ -50,10 +50,10 @@ const dbConfig = {
 };
 
 const loginDbConfig = {
-  user: process.env.DB_USER || 'EPLUATDBADMIN ',
-  password: "P0wer&#$398Art",
-  server: process.env.DB_SERVER || 'pharmacvuat.database.windows.net',
-  database: 'pharmaco',
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD ,
+  server: process.env.DB_SERVER,
+  database: 'biov2',
   options: {
     encrypt: true,
     trustServerCertificate: false,
@@ -916,6 +916,114 @@ app.get('/api/dashboard', verifyToken, restrictToRoles([1, 2]), async (req, res)
     });
   } catch (err) {
     console.error('Error fetching dashboard data:', err);
+    res.status(500).json({ error: 'Server error', message: err.message });
+  }
+});
+app.get('/api/drugs', verifyToken, restrictToRoles([1, 2]), async (req, res) => {
+  try {
+    const poolInstance = await initializeLoginPool();
+    const query = `
+      SELECT [Drug], [Comments (ICSR, AOI, Not selected)] AS category
+      FROM [dbo].[LiteratureReviewView]
+    `;
+    console.log('Executing query:', query); // Debug log
+    const result = await poolInstance.request().query(query);
+    console.log('Query result recordset:', result.recordset); // Debug log
+
+    if (!result.recordset || result.recordset.length === 0) {
+      console.warn('No data found in LiteratureReviewView');
+      return res.status(404).json({ error: 'No data found in LiteratureReviewView' });
+    }
+
+    const drugsData = result.recordset.map(row => ({
+      drug: row.Drug,
+      category: row.category
+    }));
+
+    console.log('Processed drugsData:', drugsData); // Debug log
+    res.json(drugsData);
+  } catch (err) {
+    console.error('Error fetching drugs data:', err);
+    res.status(500).json({ error: 'Server error', message: err.message });
+  }
+});
+
+app.get('/api/icsr-monthly-counts', verifyToken, restrictToRoles([1, 2]), async (req, res) => {
+  try {
+    const poolInstance = await initializeLoginPool();
+    const query = `
+      SELECT 
+        YEAR(IRD) AS year,
+        MONTH(IRD) AS month,
+        COUNT(*) AS count
+      FROM [dbo].[LiteratureReviewView]
+      WHERE [Comments (ICSR, AOI, Not selected)] LIKE '%ICSR%'
+      GROUP BY YEAR(IRD), MONTH(IRD)
+      ORDER BY year, month
+    `;
+    console.log('Executing query for ICSR monthly counts:', query);
+    const result = await poolInstance.request().query(query);
+
+    if (!result.recordset || result.recordset.length === 0) {
+      console.warn('No ICSR data found in LiteratureReviewView');
+      return res.status(404).json({ error: 'No ICSR data found' });
+    }
+
+    const icsrData = result.recordset.map(row => ({
+      ird: new Date(row.year, row.month - 1, 1).toISOString().split('T')[0], // Convert to 'YYYY-MM-DD' format
+      year: row.year,
+      month: row.month,
+      count: row.count
+    }));
+
+    console.log('Processed ICSR monthly counts:', icsrData);
+    res.json({ data: icsrData });
+  } catch (err) {
+    console.error('Error fetching ICSR monthly counts:', err);
+    res.status(500).json({ error: 'Server error', message: err.message });
+  }
+});
+
+
+app.get('/api/approved-count', verifyToken, restrictToRoles([1, 2]), async (req, res) => {
+  try {
+    const poolInstance = await initializeLoginPool();
+    const query = `
+      SELECT COUNT(*) as approvedCount
+      FROM [dbo].[LiteratureReviewView]
+      WHERE status = 'Approved'
+    `;
+    console.log('Executing query:', query);
+    const result = await poolInstance.request().query(query);
+    console.log('Raw result:', result.recordset); // Already added
+    const approvedCount = result.recordset[0].approvedCount;
+    console.log('Approved count:', approvedCount);
+    res.json({ approvedCount });
+  } catch (err) {
+    console.error('Error in /api/approved-count:', err);
+    res.status(500).json({ error: 'Server error', message: err.message });
+  }
+});
+
+app.get('/api/drug-count', async (req, res) => {
+  try {
+    const poolInstance = await initializeLoginPool();
+    const query = `
+      SELECT COUNT(DISTINCT Drug) AS DistinctDrugCount
+      FROM [dbo].[LiteratureReviewView];
+    `;
+    console.log('Executing /api/drug-count query:', query);
+    const result = await poolInstance.request().query(query);
+    console.log('Raw result from /api/drug-count:', result.recordset);
+    if (!result.recordset || result.recordset.length === 0) {
+      console.warn('No records found in /api/drug-count');
+      return res.json({ drugCount: 0 });
+    }
+    const drugCount = result.recordset[0].DistinctDrugCount;
+    console.log('Returning drugCount:', drugCount);
+    res.json({ drugCount });
+  } catch (err) {
+    console.error('Error in /api/drug-count:', err.message, 'Stack:', err.stack);
     res.status(500).json({ error: 'Server error', message: err.message });
   }
 });
