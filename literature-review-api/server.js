@@ -751,8 +751,39 @@ app.put('/api/medical-reviews/:id', verifyToken, restrictToRoles([2]), async (re
 app.get('/api/cases', verifyToken, restrictToRoles([1]), async (req, res) => {
   try {
     const data = await getCachedData(req.user.userId);
-    console.log(`Fetched ${data.length} cases from cache`);
-    res.json(data);
+    const { showTotal, comments, year, startMonth, endMonth } = req.query;
+
+    let filteredData = [...data]; // Start with full dataset
+
+    if (showTotal === 'true' && comments === 'ICSR') {
+      // Return total ICSR count matching exact 'ICSR'
+      const totalIcsrCount = filteredData.filter(item => 
+        item['Comments (ICSR, AOI, Not selected)'] === 'ICSR'
+      ).length;
+      console.log(`Total ICSR count requested: ${totalIcsrCount}`);
+      return res.json({ totalIcsrCount });
+    }
+
+    // Apply filters if not showing total
+    if (comments) {
+      filteredData = filteredData.filter(item => 
+        item['Comments (ICSR, AOI, Not selected)'] === comments
+      );
+    }
+    if (year) {
+      filteredData = filteredData.filter(item => 
+        item.IRD && new Date(item.IRD).getFullYear() === parseInt(year)
+      );
+    }
+    if (startMonth && endMonth) {
+      filteredData = filteredData.filter(item => {
+        const month = item.IRD && new Date(item.IRD).getMonth() + 1;
+        return month >= parseInt(startMonth) && month <= parseInt(endMonth);
+      });
+    }
+
+    console.log(`Fetched ${filteredData.length} cases from cache with filters`);
+    res.json(filteredData);
   } catch (err) {
     console.error('Error fetching cases:', err);
     res.status(500).json({ error: 'Server error', message: err.message });
@@ -914,6 +945,8 @@ app.get('/api/dashboard', verifyToken, restrictToRoles([1, 2]), async (req, res)
       data: dataResult.recordset,
       emailCount: emailCount
     });
+    console.log('Cached ICSR records:', dataResult.recordset.filter(item => item['Comments (ICSR, AOI, Not selected)'] === 'ICSR').length);
+
   } catch (err) {
     console.error('Error fetching dashboard data:', err);
     res.status(500).json({ error: 'Server error', message: err.message });
@@ -953,12 +986,12 @@ app.get('/api/icsr-monthly-counts', verifyToken, restrictToRoles([1, 2]), async 
     const poolInstance = await initializeLoginPool();
     const query = `
       SELECT 
-        YEAR(IRD) AS year,
-        MONTH(IRD) AS month,
+        YEAR(CAST(IRD AS DATE)) AS year,
+        MONTH(CAST(IRD AS DATE)) AS month,
         COUNT(*) AS count
       FROM [dbo].[LiteratureReviewView]
       WHERE [Comments (ICSR, AOI, Not selected)] LIKE '%ICSR%'
-      GROUP BY YEAR(IRD), MONTH(IRD)
+      GROUP BY YEAR(CAST(IRD AS DATE)), MONTH(CAST(IRD AS DATE))
       ORDER BY year, month
     `;
     console.log('Executing query for ICSR monthly counts:', query);
@@ -969,12 +1002,16 @@ app.get('/api/icsr-monthly-counts', verifyToken, restrictToRoles([1, 2]), async 
       return res.status(404).json({ error: 'No ICSR data found' });
     }
 
-    const icsrData = result.recordset.map(row => ({
-      ird: new Date(row.year, row.month - 1, 1).toISOString().split('T')[0], // Convert to 'YYYY-MM-DD' format
-      year: row.year,
-      month: row.month,
-      count: row.count
-    }));
+    const icsrData = result.recordset.map(row => {
+      const irdDate = new Date(row.year, row.month - 1, 1);
+      console.log(`Row data - Year: ${row.year}, Month: ${row.month}, Count: ${row.count}, IRD: ${irdDate.toISOString().split('T')[0]}`);
+      return {
+        ird: irdDate.toISOString().split('T')[0], // 'YYYY-MM-DD' format
+        year: row.year,
+        month: row.month,
+        count: row.count
+      };
+    });
 
     console.log('Processed ICSR monthly counts:', icsrData);
     res.json({ data: icsrData });

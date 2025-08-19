@@ -15377,52 +15377,79 @@ const [approvedArticles, setApprovedArticles] = useState([]);
     return sevenDaysAgo.toISOString().split('T')[0];
   }
 const fetchRawData = useCallback(async () => {
-    if (rawDataCache.current) {
-      return rawDataCache.current;
-    }
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await DatabaseService.fetchDashboardData(); // Returns { data, emailCount }
-      console.log('Raw dashboard response:', response);
-      const { data, emailCount } = response;
-      const processedData = data.map(item => {
-  const dateField = "IRD"; // Changed to IRD
-  let date, year, month, displayDate;
-  if (item[dateField]) {
-    const dateStr = item[dateField].toString();
-    if (dateStr) {
-      date = new Date(dateStr);
-      if (!isNaN(date.getTime())) {
-        year = date.getFullYear();
-        month = date.getMonth() + 1;
-        displayDate = date.toLocaleString('default', { month: 'short', year: 'numeric' });
-      }
-    }
+  if (rawDataCache.current) {
+    return rawDataCache.current;
   }
-  const commentsField = "Comments (ICSR, AOI, Not selected)";
-  const comments = item[commentsField] ? item[commentsField].toString().toUpperCase() : 'Others';
-  const patientTypeField = Object.keys(item).find(key =>
-    key.toLowerCase().includes('patient') && key.toLowerCase().includes('type')
-  );
-  const patientType = patientTypeField && item[patientTypeField] ? item[patientTypeField].toString().trim() : 'Unknown';
-  return { date, year, month, displayDate, email: item.Mail, comments, patientType };
-}).filter(item => item.date && !isNaN(item.date.getTime()));
-const totalArticleCount = data.length; // Add total article count
-rawDataCache.current = { processedData, emailCount, totalArticleCount }; // Update cache
-      setLoading(false);
-      return rawDataCache.current;
-    } catch (err) {
-      console.error('Error fetching dashboard data:', {
-        message: err.message,
-        status: err.response?.status,
-        data: err.response?.data
-      });
-      setError(err.response?.data?.error || 'Failed to load dashboard data');
-      setLoading(false);
-      return { processedData: [], emailCount: 0 };
-    }
-  }, []);
+  try {
+    setLoading(true);
+    setError(null);
+    const response = await DatabaseService.fetchDashboardData(); // Returns { data, emailCount }
+    console.log('Raw dashboard response:', response);
+    const icsrRecords = response.data.filter(item => 
+      item['Comments (ICSR, AOI, Not selected)'] === 'ICSR'
+    );
+    console.log('ICSR records in raw data:', icsrRecords.length, icsrRecords);
+    const { data, emailCount } = response;
+    const processedData = data.map(item => {
+      const dateField = "IRD"; // Changed to IRD
+      let date, year, month, displayDate;
+      if (item[dateField]) {
+        const dateStr = item[dateField].toString().trim(); // Ensure no extra spaces
+        console.log('Processing IRD:', dateStr, 'for item:', item);
+        const [day, monthStr, yearStr] = dateStr.split('-'); // Split dd-mm-yyyy
+        if (day && monthStr && yearStr) {
+          // Reorder to YYYY-MM-DD for new Date()
+          const formattedDate = `${yearStr}-${monthStr}-${day}`;
+          date = new Date(formattedDate);
+          console.log('Formatted date:', formattedDate, 'Parsed date:', date);
+          if (!isNaN(date.getTime())) {
+            year = date.getFullYear();
+            month = date.getMonth() + 1; // 0-based to 1-based
+            displayDate = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+          } else {
+            console.log('Invalid date after formatting for item:', formattedDate, 'Full item:', item);
+          }
+        } else {
+          console.log('Malformed date string for item:', dateStr, 'Full item:', item);
+        }
+      } else {
+        console.log('Missing IRD for item:', item);
+      }
+      const commentsField = "Comments (ICSR, AOI, Not selected)";
+      const comments = item[commentsField] ? item[commentsField].toString().toUpperCase() : 'Others';
+      const patientTypeField = Object.keys(item).find(key =>
+        key.toLowerCase().includes('patient') && key.toLowerCase().includes('type')
+      );
+      const patientType = patientTypeField && item[patientTypeField] ? item[patientTypeField].toString().trim() : 'Unknown';
+      return { date, year, month, displayDate, email: item.Mail, comments, patientType };
+    }).filter(item => {
+      if (!item.date || (item.date && isNaN(item.date.getTime()))) {
+        if (item.comments === 'ICSR') {
+          console.log('ICSR retained with invalid date:', item);
+          return true; // Keep ICSRs with invalid dates
+        }
+        return false; // Drop non-ICSRs with invalid dates
+      }
+      return true; // Keep valid dates
+    });
+    const totalArticleCount = data.length; // Add total article count
+    rawDataCache.current = { processedData, emailCount, totalArticleCount }; // Update cache
+    console.log('Processed data length:', processedData.length, 'with ICSRs:', processedData.filter(item => item.comments === 'ICSR').length);
+    setLoading(false);
+    return rawDataCache.current;
+  } catch (err) {
+    console.error('Error fetching dashboard data:', {
+      message: err.message,
+      status: err.response?.status,
+      data: err.response?.data
+    });
+    setError(err.response?.data?.error || 'Failed to load dashboard data');
+    setLoading(false);
+    return { processedData: [], emailCount: 0 };
+  }
+}, []);
+
+const totalIcsrRef = useRef(0);
 
 const processDashboardData = useCallback(async (year, start, end) => {
   const rawData = await fetchRawData();
@@ -15437,22 +15464,24 @@ const processDashboardData = useCallback(async (year, start, end) => {
     return;
   }
 
-  let totalIcsrCount = 0;
+  let totalIcsrCount = processedData.filter(item => item.comments === 'ICSR').length;
   const icsrCountsByMonth = {};
   const allYears = new Set();
 
   processedData.forEach(item => {
-    const { date, year: itemYear, month, comments } = item;
+    const { year: itemYear, month, comments } = item;
     allYears.add(itemYear);
 
-    if (itemYear === year && month >= start && month <= end) {
-      if (comments && comments.includes('ICSR')) {
-        totalIcsrCount++;
-        const monthKey = `${itemYear}-${month.toString().padStart(2, '0')}`;
-        icsrCountsByMonth[monthKey] = (icsrCountsByMonth[monthKey] || 0) + 1;
-      }
+    if (comments === 'ICSR' && item.year && item.month) { // Only count if year and month are defined
+      const monthKey = `${itemYear}-${month.toString().padStart(2, '0')}`;
+      icsrCountsByMonth[monthKey] = (icsrCountsByMonth[monthKey] || 0) + 1;
     }
   });
+
+  // Debugging to confirm total ICSR count
+  console.log('Processed ICSR count (totalIcsrCount):', totalIcsrCount);
+  const allIcsrRecords = processedData.filter(item => item.comments === 'ICSR');
+  console.log('All ICSR records in processedData:', allIcsrRecords.length, allIcsrRecords);
 
   const timelineArray = Object.keys(icsrCountsByMonth).map(key => {
     const [year, month] = key.split('-');
@@ -15464,17 +15493,23 @@ const processDashboardData = useCallback(async (year, start, end) => {
     };
   }).sort((a, b) => a.month - b.month);
 
+  const { totalArticleCount } = await fetchRawData(); // Ensure totalArticleCount is fetched
+  totalIcsrRef.current = totalIcsrCount; // Persist total ICSR count
   setStats({
-  eMailCount: emailCount,
-  articleCount: processedData.length, // Total articles instead of ICSR count
-  icsrCount: totalIcsrCount,
-  aoiCount: 0
-});
+    eMailCount: emailCount,
+    articleCount: totalArticleCount,
+    icsrCount: totalIcsrRef.current, // Use persisted total
+    aoiCount: 0
+  }); 
+
+  // Debugging after setStats
+  console.log('Stats set - ICSR Count:', stats.icsrCount, 'Total Articles:', stats.articleCount);
+
   setPatientTypeData([]);
   setCommentsData([]);
   setTimelineData(timelineArray);
   setAvailableYears(Array.from(allYears).sort());
-  console.log('processDashboardData: Stats set - articleCount:', timelineArray.reduce((sum, d) => sum + d.count, 0));
+  console.log('processDashboardData: Timeline ICSR sum:', timelineArray.reduce((sum, d) => sum + d.count, 0));
 }, [fetchRawData]);
   // Debounced data processing
   const debouncedProcessDashboardData = useMemo(
@@ -15484,18 +15519,26 @@ const processDashboardData = useCallback(async (year, start, end) => {
 
   // Trigger data processing on filter change
   useEffect(() => {
-    debouncedProcessDashboardData(selectedYear, startMonth, endMonth);
-    const timer = setTimeout(() => setIsChartRendered(true), 50);
-    return () => {
-      clearTimeout(timer);
-      // Cleanup tooltips on unmount
-      d3.select("#comments-tooltip").style("opacity", 0);
-      d3.select("#patient-tooltip").style("opacity", 0);
-      d3.select("#timeline-tooltip").style("opacity", 0);
-      d3.select("#casuality-tooltip").style("opacity", 0);
-    };
-  }, [selectedYear, startMonth, endMonth, debouncedProcessDashboardData]);
-
+  rawDataCache.current = null; // Clear cache on filter change
+  debouncedProcessDashboardData(selectedYear, startMonth, endMonth);
+  const timer = setTimeout(() => setIsChartRendered(true), 50);
+  return () => {
+    clearTimeout(timer);
+    d3.select("#comments-tooltip").style("opacity", 0);
+    d3.select("#patient-tooltip").style("opacity", 0);
+    d3.select("#timeline-tooltip").style("opacity", 0);
+    d3.select("#casuality-tooltip").style("opacity", 0);
+  };
+}, [selectedYear, startMonth, endMonth, debouncedProcessDashboardData]);
+useEffect(() => {
+  console.log('Stats updated - ICSR Count:', stats.icsrCount, 'Ref Total:', totalIcsrRef.current);
+  if (stats.icsrCount !== totalIcsrRef.current) {
+    setStats(prevStats => ({
+      ...prevStats,
+      icsrCount: totalIcsrRef.current
+    }));
+  }
+}, [stats.icsrCount]);
 useEffect(() => {
   const fetchApprovedCount = async () => {
     try {
@@ -16516,13 +16559,11 @@ useEffect(() => {
     className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-900 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 cursor-pointer relative overflow-hidden"
     style={{ background: `linear-gradient(135deg, ${LIGHT_BG} 60%, rgba(65, 120, 169, 0.05))` }}
     onClick={() => {
-      const queryParams = new URLSearchParams();
-      queryParams.set('comments', 'ICSR');
-      queryParams.set('startMonth', startMonth);
-      queryParams.set('endMonth', endMonth);
-      queryParams.set('year', selectedYear);
-      navigate(`/cases?${queryParams.toString()}`);
-    }}
+  const queryParams = new URLSearchParams();
+  queryParams.set('comments', 'ICSR');
+  queryParams.set('showTotal', 'true'); // Request total count
+  navigate(`/cases?${queryParams.toString()}`);
+}}
   >
     <div className="absolute right-0 top-0 h-full w-1/4 bg-gradient-to-l from-blue-900/10 to-transparent z-0"></div>
     <div className="relative z-10 flex items-center">
