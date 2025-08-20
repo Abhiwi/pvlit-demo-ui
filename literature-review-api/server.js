@@ -638,6 +638,8 @@ app.put('/api/medical-reviews/:id', verifyToken, restrictToRoles([2]), async (re
         WHERE [Article PMID] = @id AND Drug = @drug
       `);
 
+
+
     console.log(`Record check result for PMID=${id}, Drug=${Drug.trim()} at ${new Date().toISOString()}:`, {
       rowCount: checkResult.recordset.length,
       records: checkResult.recordset
@@ -978,18 +980,18 @@ app.get('/api/drug-count', async (req, res) => {
       SELECT COUNT(DISTINCT Drug) AS DistinctDrugCount
       FROM [dbo].[LiteratureReviewView];
     `;
-    console.log('Executing /api/drug-count query:', query);
+    console.log('Executing /api/drug-count query at', new Date().toISOString(), ':', query);
     const result = await poolInstance.request().query(query);
-    console.log('Raw result from /api/drug-count:', result.recordset);
+    console.log('Raw result from /api/drug-count at', new Date().toISOString(), ':', result.recordset);
     if (!result.recordset || result.recordset.length === 0) {
-      console.warn('No records found in /api/drug-count');
+      console.warn('No records found in /api/drug-count at', new Date().toISOString());
       return res.json({ drugCount: 0 });
     }
     const drugCount = result.recordset[0].DistinctDrugCount;
-    console.log('Returning drugCount:', drugCount);
+    console.log('Returning drugCount:', drugCount, 'at', new Date().toISOString());
     res.json({ drugCount });
   } catch (err) {
-    console.error('Error in /api/drug-count:', err.message, 'Stack:', err.stack);
+    console.error('Error in /api/drug-count at', new Date().toISOString(), ':', err.message, 'Stack:', err.stack);
     res.status(500).json({ error: 'Server error', message: err.message });
   }
 });

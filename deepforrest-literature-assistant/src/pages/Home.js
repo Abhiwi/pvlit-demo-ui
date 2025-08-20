@@ -15567,8 +15567,8 @@ useEffect(() => {
 useEffect(() => {
   const fetchDrugCount = async () => {
     try {
-      console.log('Starting fetchDrugCount...', 'URL:', 'http://localhost:5000/api/drug-count');
-      const response = await fetch('http://localhost:5000/api/drug-count');
+      console.log('Starting fetchDrugCount...', 'URL:', '/api/drug-count');
+      const response = await fetch('/api/drug-count');
       console.log('Response received:', response.status, 'OK:', response.ok);
       if (!response.ok) {
         const errorText = await response.text();
@@ -16610,11 +16610,11 @@ useEffect(() => {
       <FileText size={20} className="text-white" />
     </div>
     <div>
-      <h3 className="text-sm font-semibold text-gray-600 mb-1">Approved Articles for Medical Admin</h3>
+      <h3 className="text-sm font-semibold text-gray-600 mb-1">Pending Approvals for Medical Admin</h3>
       <p className="text-3xl font-bold text-gray-900">
         {formatNumber(approvedCount)} <span style={{ fontSize: '12px' }}> </span>
       </p>
-      <p className="text-xs text-gray-500 mt-1">Total articles sent for medical admin</p>
+      <p className="text-xs text-gray-500 mt-1">articles for medical admin</p>
     </div>
   </div>
 </div>
