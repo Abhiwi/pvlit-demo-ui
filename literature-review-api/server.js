@@ -614,15 +614,15 @@ app.put('/api/medical-reviews/:id', verifyToken, restrictToRoles([2]), async (re
     const { Drug, clientId, ...updateData } = req.body;
     const drugParam = req.query.drug;
 
-    console.log(`PUT /api/medical-reviews/${id} called with:`, {
-      ArticlePMID: id,
-      BodyDrug: Drug,
-      QueryDrug: drugParam,
-      ClientId: clientId,
-      UpdateData: updateData
+    console.log(`PUT /api/medical-reviews/${id} received at ${new Date().toISOString()}:`, {
+      params: req.params,
+      body: req.body,
+      query: req.query,
+      headers: req.headers
     });
 
     if (!Drug || !drugParam || Drug.trim() !== drugParam.trim()) {
+      console.error(`Drug mismatch or missing at ${new Date().toISOString()}:`, { BodyDrug: Drug, QueryDrug: drugParam });
       return res.status(400).json({ error: 'Drug is required in both body and query parameter, and they must match' });
     }
     if (!clientId) {
@@ -638,9 +638,14 @@ app.put('/api/medical-reviews/:id', verifyToken, restrictToRoles([2]), async (re
         WHERE [Article PMID] = @id AND Drug = @drug
       `);
 
+    console.log(`Record check result for PMID=${id}, Drug=${Drug.trim()} at ${new Date().toISOString()}:`, {
+      rowCount: checkResult.recordset.length,
+      records: checkResult.recordset
+    });
+
     if (checkResult.recordset.length === 0) {
-      console.warn(`No record found for Article PMID=${id}, Drug=${Drug.trim()}`);
-      return res.status(404).json({ error: 'No record found for the specified Article PMID and Drug' });
+      console.warn(`No record found for Article PMID=${id}, Drug=${Drug.trim()} at ${new Date().toISOString()}`);
+      return res.status(404).json({ error: `No record found for Article PMID: ${id} and Drug: ${Drug.trim()}` });
     }
 
     const { Status, Comments } = checkResult.recordset[0];
@@ -659,91 +664,50 @@ app.put('/api/medical-reviews/:id', verifyToken, restrictToRoles([2]), async (re
     const transaction = new sql.Transaction(poolInstance);
     try {
       await transaction.begin();
-      let rowsAffected = 0;
-      const updatesByTable = {
-        Mail: [],
-        Article: [],
-        Mail_Article: [],
-        Article_Drug: []
-      };
+      const request = transaction.request()
+        .input('id', sql.NVarChar, id)
+        .input('drug', sql.NVarChar, Drug.trim());
 
-      Object.entries(updateData).forEach(([key, value]) => {
-        if (key !== 'id' && key !== 'S.No' && key !== 'Article PMID') {
-          const tables = columnToTableMap[key] || [];
-          tables.forEach(table => {
-            if (!updatesByTable[table]) updatesByTable[table] = [];
-            updatesByTable[table].push({ key, value });
-          });
-        }
+      const paramMapping = {};
+      Object.entries(updateData).forEach(([key, value], index) => {
+        const paramName = `p${index}`;
+        paramMapping[key] = paramName;
+        request.input(paramName, getSqlType(value, key), value);
       });
 
-      for (const [table, fields] of Object.entries(updatesByTable)) {
-        if (fields.length === 0) continue;
+      const updateFields = Object.entries(updateData)
+        .map(([key], index) => `[${key}] = @${paramMapping[key]}`)
+        .join(', ');
 
-        const request = transaction.request()
-          .input('id', sql.NVarChar, id)
-          .input('drug', sql.NVarChar, Drug.trim());
+      const query = `
+        UPDATE [dbo].[LiteratureReviewView]
+        SET ${updateFields}
+        WHERE [Article PMID] = @id AND Drug = @drug
+      `;
 
-        const paramMapping = {};
-        fields.forEach(({ key, value }, index) => {
-          const paramName = `p${index}`;
-          paramMapping[key] = paramName;
-          request.input(paramName, getSqlType(value, key), value);
-        });
-
-        const updateFields = fields.map(({ key }) => `[${key}] = @${paramMapping[key]}`).join(', ');
-
-        let query;
-        if (table === 'Mail') {
-          query = `
-            UPDATE [dbo].[Mail]
-            SET ${updateFields}
-            FROM [dbo].[Mail] m
-            JOIN [dbo].[Mail_Article] ma ON m.MailID = ma.MailID
-            WHERE ma.[Article PMID] = @id AND ma.Drug = @drug
-          `;
-        } else if (table === 'Article') {
-          query = `
-            UPDATE [dbo].[Article]
-            SET ${updateFields}
-            WHERE [Article PMID] = @id
-          `;
-        } else if (table === 'Mail_Article') {
-          query = `
-            UPDATE [dbo].[Mail_Article]
-            SET ${updateFields}
-            WHERE [Article PMID] = @id AND Drug = @drug
-          `;
-        } else if (table === 'Article_Drug') {
-          query = `
-            UPDATE [dbo].[Article_Drug]
-            SET ${updateFields}
-            WHERE [Article PMID] = @id AND Drug = @drug
-          `;
-        }
-
-        console.log(`Executing UPDATE query on ${table}: ${query}`);
-        const result = await request.query(query);
-        rowsAffected += result.rowsAffected[0];
-      }
+      console.log(`Executing UPDATE query at ${new Date().toISOString()}: ${query}`);
+      const result = await request.query(query);
+      const rowsAffected = result.rowsAffected[0];
+      console.log(`Update result at ${new Date().toISOString()}:`, { rowsAffected });
 
       if (rowsAffected === 0) {
         await transaction.rollback();
-        console.warn(`No rows updated for Article PMID=${id}, Drug=${Drug.trim()}`);
+        console.warn(`No rows updated for Article PMID=${id}, Drug=${Drug.trim()} at ${new Date().toISOString()}`);
         return res.status(404).json({ error: 'No records updated. Verify Article PMID and Drug.' });
       }
 
       await transaction.commit();
       await updateSingleRowInCache(req.user.userId, id, Drug.trim(), updateData);
-      res.json({ success: true, message: 'Record updated', rowsAffected });
+      console.log(`Medical review updated successfully for Article PMID=${id}, Drug=${Drug.trim()} at ${new Date().toISOString()}`);
+      res.json({ success: true, message: 'Medical review updated', rowsAffected });
     } catch (err) {
       await transaction.rollback();
-      console.error(`Error executing update for Article PMID=${id}, Drug=${Drug.trim()}:`, err);
-      return res.status(500).json({ error: 'Database error during update', message: err.message });
+      console.error(`Transaction error for Article PMID=${id}, Drug=${Drug.trim()} at ${new Date().toISOString()}:`, err);
+      return res.status(500).json({ error: 'Database error during update', message: err.message, stack: err.stack });
     }
   } catch (err) {
-    console.error(`Error updating medical review for Article PMID=${id}, Drug=${req.query.drug}:`, err);
-    res.status(500).json({ error: 'Database error', message: err.message });
+    console.error(`Error in /api/medical-reviews/${id} at ${new Date().toISOString()}:`, err);
+    res.status(500).json({ error: 'Server error', message: err.message, stack: err.stack });
   }
 });
 
@@ -792,21 +756,22 @@ app.get('/api/cases', verifyToken, restrictToRoles([1]), async (req, res) => {
 
 app.put('/api/cases/:id', verifyToken, restrictToRoles([1]), async (req, res) => {
   try {
+    console.log(`PUT /api/cases/${req.params.id} hit at ${new Date().toISOString()}`);
     const poolInstance = await initializeLoginPool();
     const lockPool = await initializePool();
     const id = req.params.id;
     const { Drug, clientId, ...updateData } = req.body;
     const drugParam = req.query.drug;
 
-    console.log(`PUT /api/cases/${id} called with:`, {
-      ArticlePMID: id,
-      Drug,
-      clientId,
-      updateData,
-      queryDrug: drugParam
+    console.log(`PUT /api/cases/${id} received at ${new Date().toISOString()}:`, {
+      params: req.params,
+      body: req.body,
+      query: req.query,
+      headers: req.headers
     });
 
     if (!Drug || !drugParam || Drug.trim() !== drugParam.trim()) {
+      console.error(`Drug mismatch or missing at ${new Date().toISOString()}:`, { BodyDrug: Drug, QueryDrug: drugParam });
       return res.status(400).json({ error: 'Drug is required in both body and query parameter, and they must match' });
     }
     if (!clientId) {
@@ -822,9 +787,14 @@ app.put('/api/cases/:id', verifyToken, restrictToRoles([1]), async (req, res) =>
         WHERE [Article PMID] = @id AND Drug = @drug
       `);
 
+    console.log(`Record check result for PMID=${id}, Drug=${Drug.trim()} at ${new Date().toISOString()}:`, {
+      rowCount: checkResult.recordset.length,
+      records: checkResult.recordset
+    });
+
     if (checkResult.recordset.length === 0) {
-      console.warn(`No record found for Article PMID=${id}, Drug=${Drug.trim()}`);
-      return res.status(404).json({ error: 'No record found for the specified Article PMID and Drug' });
+      console.warn(`No record found for Article PMID=${id}, Drug=${Drug.trim()} at ${new Date().toISOString()}`);
+      return res.status(404).json({ error: `No record found for Article PMID: ${id} and Drug: ${Drug.trim()}` });
     }
 
     const lockCheck = await lockPool.request()
@@ -838,91 +808,50 @@ app.put('/api/cases/:id', verifyToken, restrictToRoles([1]), async (req, res) =>
     const transaction = new sql.Transaction(poolInstance);
     try {
       await transaction.begin();
-      let rowsAffected = 0;
-      const updatesByTable = {
-        Mail: [],
-        Article: [],
-        Mail_Article: [],
-        Article_Drug: []
-      };
+      const request = transaction.request()
+        .input('id', sql.NVarChar, id)
+        .input('drug', sql.NVarChar, Drug.trim());
 
-      Object.entries(updateData).forEach(([key, value]) => {
-        if (key !== 'id' && key !== 'S.No' && key !== 'Article PMID') {
-          const tables = columnToTableMap[key] || [];
-          tables.forEach(table => {
-            if (!updatesByTable[table]) updatesByTable[table] = [];
-            updatesByTable[table].push({ key, value });
-          });
-        }
+      const paramMapping = {};
+      Object.entries(updateData).forEach(([key, value], index) => {
+        const paramName = `p${index}`;
+        paramMapping[key] = paramName;
+        request.input(paramName, getSqlType(value, key), value);
       });
 
-      for (const [table, fields] of Object.entries(updatesByTable)) {
-        if (fields.length === 0) continue;
+      const updateFields = Object.entries(updateData)
+        .map(([key], index) => `[${key}] = @${paramMapping[key]}`)
+        .join(', ');
 
-        const request = transaction.request()
-          .input('id', sql.NVarChar, id)
-          .input('drug', sql.NVarChar, Drug.trim());
+      const query = `
+        UPDATE [dbo].[LiteratureReviewView]
+        SET ${updateFields}
+        WHERE [Article PMID] = @id AND Drug = @drug
+      `;
 
-        const paramMapping = {};
-        fields.forEach(({ key, value }, index) => {
-          const paramName = `p${index}`;
-          paramMapping[key] = paramName;
-          request.input(paramName, getSqlType(value, key), value);
-        });
-
-        const updateFields = fields.map(({ key }) => `[${key}] = @${paramMapping[key]}`).join(', ');
-
-        let query;
-        if (table === 'Mail') {
-          query = `
-            UPDATE [dbo].[Mail]
-            SET ${updateFields}
-            FROM [dbo].[Mail] m
-            JOIN [dbo].[Mail_Article] ma ON m.MailID = ma.MailID
-            WHERE ma.[Article PMID] = @id AND ma.Drug = @drug
-          `;
-        } else if (table === 'Article') {
-          query = `
-            UPDATE [dbo].[Article]
-            SET ${updateFields}
-            WHERE [Article PMID] = @id
-          `;
-        } else if (table === 'Mail_Article') {
-          query = `
-            UPDATE [dbo].[Mail_Article]
-            SET ${updateFields}
-            WHERE [Article PMID] = @id AND Drug = @drug
-          `;
-        } else if (table === 'Article_Drug') {
-          query = `
-            UPDATE [dbo].[Article_Drug]
-            SET ${updateFields}
-            WHERE [Article PMID] = @id AND Drug = @drug
-          `;
-        }
-
-        console.log(`Executing UPDATE query on ${table}: ${query}`);
-        const result = await request.query(query);
-        rowsAffected += result.rowsAffected[0];
-      }
+      console.log(`Executing UPDATE query at ${new Date().toISOString()}: ${query}`);
+      const result = await request.query(query);
+      const rowsAffected = result.rowsAffected[0];
+      console.log(`Update result at ${new Date().toISOString()}:`, { rowsAffected });
 
       if (rowsAffected === 0) {
         await transaction.rollback();
-        console.warn(`No rows updated for Article PMID=${id}, Drug=${Drug.trim()}`);
+        console.warn(`No rows updated for Article PMID=${id}, Drug=${Drug.trim()} at ${new Date().toISOString()}`);
         return res.status(404).json({ error: 'No records updated. Verify Article PMID and Drug.' });
       }
 
       await transaction.commit();
       await updateSingleRowInCache(req.user.userId, id, Drug.trim(), updateData);
+      console.log(`Case updated successfully for Article PMID=${id}, Drug=${Drug.trim()} at ${new Date().toISOString()}`);
       res.json({ success: true, message: 'Case updated', rowsAffected });
     } catch (err) {
       await transaction.rollback();
-      console.error(`Error executing update for Article PMID=${id}, Drug=${Drug.trim()}:`, err);
-      return res.status(500).json({ error: 'Database error during update', message: err.message });
+      console.error(`Transaction error for Article PMID=${id}, Drug=${Drug.trim()} at ${new Date().toISOString()}:`, err);
+      return res.status(500).json({ error: 'Database error during update', message: err.message, stack: err.stack });
     }
   } catch (err) {
-    console.error(`Error updating case for Article PMID=${id}, Drug=${req.query.drug}:`, err);
-    res.status(500).json({ error: 'Database error', message: err.message });
+    console.error(`Error in /api/cases/${id} at ${new Date().toISOString()}:`, err);
+    res.status(500).json({ error: 'Server error', message: err.message, stack: err.stack });
   }
 });
 app.get('/api/dashboard', verifyToken, restrictToRoles([1, 2]), async (req, res) => {
