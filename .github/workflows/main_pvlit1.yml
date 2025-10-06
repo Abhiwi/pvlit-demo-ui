@@ -52,4 +52,4 @@ jobs:
           app-name: 'pvlit1'
           slot-name: 'Production'
           package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_4BEA34AAC3774E8A910AAF8443CED05D }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_3F24AC5712C3484E8540074DF1DF09C5 }}
