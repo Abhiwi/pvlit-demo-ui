@@ -39,7 +39,7 @@ const dbConfig = {
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD ,
   server: process.env.DB_SERVER,
-  database: 'biov2',
+  database: 'pvlit_db',
   options: {
     encrypt: true,
     trustServerCertificate: false,
@@ -53,7 +53,7 @@ const loginDbConfig = {
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD ,
   server: process.env.DB_SERVER,
-  database: 'biov2',
+  database: 'pvlit_db',
   options: {
     encrypt: true,
     trustServerCertificate: false,
